@@ -1,0 +1,10 @@
+torch
+torchvision
+torchgeo
+segment-anything
+albumentations
+PyWavelets
+matplotlib
+tqdm
+opencv-python-headless
+numpy
