@@ -14,7 +14,7 @@ def plot_loss_curves(train_losses, val_losses, save_path="loss_curve.png"):
     plt.savefig(save_path)
     plt.close()
 
-def save_predictions(images, masks, logits, save_dir, epoch, batch_idx):
+def save_predictions(images, masks, logits, save_dir, epoch, batch_idx, mIoU=None, mDice=None):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir, exist_ok=True)
         
@@ -48,7 +48,10 @@ def save_predictions(images, masks, logits, save_dir, epoch, batch_idx):
         # Prediction
         ax_pred = axes[i][2]
         ax_pred.imshow(preds[i], cmap='jet')
-        ax_pred.set_title("Model Prediction")
+        title_str = "Model Prediction"
+        if mIoU is not None and mDice is not None:
+            title_str += f"\nmIoU: {mIoU:.4f} | Dice: {mDice:.4f}"
+        ax_pred.set_title(title_str)
         ax_pred.axis('off')
         
     plt.tight_layout()

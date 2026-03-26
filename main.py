@@ -57,12 +57,12 @@ def main(args):
             break
             
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, Config.DEVICE)
-        val_loss, val_acc = evaluate(model, val_loader, criterion, Config.DEVICE, num_classes=Config.NUM_CLASSES)
+        val_loss, val_acc, val_miou, val_dice = evaluate(model, val_loader, criterion, Config.DEVICE, num_classes=Config.NUM_CLASSES)
         
         train_losses.append(train_loss)
         val_losses.append(val_loss)
         
-        print(f"Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Accuracy: {val_acc*100:.2f}%")
+        print(f"Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Accuracy: {val_acc*100:.2f}% | mIoU: {val_miou:.4f} | Dice: {val_dice:.4f}")
         
         # Save plots
         plot_loss_curves(train_losses, val_losses)
@@ -75,7 +75,7 @@ def main(args):
                 val_imgs, val_msks = next(iter(val_loader))
                 val_imgs, val_msks = val_imgs.to(Config.DEVICE), val_msks.to(Config.DEVICE)
                 logits = model(val_imgs)
-                save_predictions(val_imgs, val_msks, logits, "output_samples", epoch, 0)
+                save_predictions(val_imgs, val_msks, logits, "output_samples", epoch, 0, mIoU=val_miou, mDice=val_dice)
             except Exception as e:
                 # Might trigger if val_loader assumes empty data during setup
                 print(f"Skipping visualization for now: {e}")
