@@ -24,8 +24,8 @@ def main(args):
     train_dataset = SatelliteSegmentationDataset(data_dir=Config.DATA_DIR, transform=train_transform, split="train")
     val_dataset = SatelliteSegmentationDataset(data_dir=Config.DATA_DIR, transform=val_transform, split="val")
     
-    train_loader = DataLoader(train_dataset, batch_size=Config.BATCH_SIZE, shuffle=True, num_workers=0)
-    val_loader = DataLoader(val_dataset, batch_size=Config.BATCH_SIZE, shuffle=False, num_workers=0)
+    train_loader = DataLoader(train_dataset, batch_size=Config.BATCH_SIZE, shuffle=True, num_workers=2)
+    val_loader = DataLoader(val_dataset, batch_size=Config.BATCH_SIZE, shuffle=False, num_workers=2)
     
     # 2. Model Initialization
     # Initialize SAM backbone
