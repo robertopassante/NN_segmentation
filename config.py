@@ -14,13 +14,13 @@ class Config:
     NUM_CLASSES = 8 # LoveDA uses 7 classes + background (0)
     
     # Training Parameters
-    BATCH_SIZE = 4
+    BATCH_SIZE = 8
     LEARNING_RATE = 1e-4
     NUM_EPOCHS = 20
     IMAGE_SIZE = 512 # Resize size for inputs
     
     # Wavelet parameters (ISPAMM integration)
-    USE_WAVELET_AUGMENTATION = True
+    USE_WAVELET_AUGMENTATION = False
     WAVELET_TYPE = 'haar'
     
     # Hardware

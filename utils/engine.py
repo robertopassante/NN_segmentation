@@ -1,9 +1,11 @@
 import torch
 from tqdm import tqdm
+from torch.cuda.amp import autocast, GradScaler
 
 def train_one_epoch(model, dataloader, criterion, optimizer, device):
     model.train()
     running_loss = 0.0
+    scaler = GradScaler()
     
     pbar = tqdm(dataloader, desc="Training")
     for images, masks in pbar:
@@ -12,13 +14,15 @@ def train_one_epoch(model, dataloader, criterion, optimizer, device):
         
         optimizer.zero_grad()
         
-        # Forward pass
-        logits = model(images)
-        loss = criterion(logits, masks)
+        # Forward pass with AMP (Automatic Mixed Precision)
+        with autocast(enabled=(device == 'cuda')):
+            logits = model(images)
+            loss = criterion(logits, masks)
         
-        # Backward and optimize
-        loss.backward()
-        optimizer.step()
+        # Backward and optimize using scaler
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)
+        scaler.update()
         
         running_loss += loss.item()
         pbar.set_postfix({'loss': f"{loss.item():.4f}"})
@@ -43,8 +47,10 @@ def evaluate(model, dataloader, criterion, device, num_classes=2):
         images = images.to(device)
         masks = masks.to(device)
         
-        logits = model(images)
-        loss = criterion(logits, masks)
+        with autocast(enabled=(device == 'cuda')):
+            logits = model(images)
+            loss = criterion(logits, masks)
+            
         running_loss += loss.item()
         
         # Compute accuracy
