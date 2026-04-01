@@ -7,8 +7,7 @@ import argparse
 from config import Config
 from data.dataset import SatelliteSegmentationDataset
 from data.transforms import get_train_transforms, get_val_transforms
-from models.sam_wrapper import SAMFeatureExtractor
-from models.classifier import SAM_Segmenter
+from models.lightweight_unet import LightweightUNet
 from utils.engine import train_one_epoch, evaluate
 from utils.plots import plot_loss_curves, save_predictions
 
@@ -28,20 +27,16 @@ def main(args):
     val_loader = DataLoader(val_dataset, batch_size=Config.BATCH_SIZE, shuffle=False, num_workers=2)
     
     # 2. Model Initialization
-    # Initialize SAM backbone
-    sam_extractor = SAMFeatureExtractor(
-        model_type=Config.MODEL_TYPE,
-        checkpoint_path=Config.SAM_CHECKPOINT_PATH,
-        device=Config.DEVICE
+    # Initialize Lightweight Swin U-Net backbone
+    model = LightweightUNet(
+        num_classes=Config.NUM_CLASSES,
+        encoder_name=Config.ENCODER_NAME
     )
-    
-    # Append the classifier head
-    model = SAM_Segmenter(sam_extractor=sam_extractor, num_classes=Config.NUM_CLASSES)
     model = model.to(Config.DEVICE)
     
     # 3. Setup Optimizer and Loss
-    # We only optimize the classification head! SAM features are frozen.
-    optimizer = torch.optim.Adam(model.head.parameters(), lr=Config.LEARNING_RATE)
+    # Optimize all parameters of the lightweight model
+    optimizer = torch.optim.Adam(model.parameters(), lr=Config.LEARNING_RATE)
     criterion = nn.CrossEntropyLoss()
     
     train_losses = []

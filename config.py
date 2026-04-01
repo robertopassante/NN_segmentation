@@ -10,14 +10,14 @@ class Config:
     
     # Model Settings
     SAM_CHECKPOINT_PATH = "sam_vit_b_01ec64.pth" # Path to downloaded SAM weights
-    MODEL_TYPE = "vit_b"
+    ENCODER_NAME = "tu-swin_tiny_patch4_window7_224" # Lightweight Swin Transformer backbone
     NUM_CLASSES = 8 # LoveDA uses 7 classes + background (0)
     
     # Training Parameters
     BATCH_SIZE = 8
     LEARNING_RATE = 1e-4
     NUM_EPOCHS = 20
-    IMAGE_SIZE = 512 # Resize size for inputs
+    IMAGE_SIZE = 224 # Resize size for inputs (Forced to 224 for Swin Transformer strict patch embedding requirement)
     
     # Wavelet parameters (ISPAMM integration)
     USE_WAVELET_AUGMENTATION = False

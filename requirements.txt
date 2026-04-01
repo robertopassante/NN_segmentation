@@ -8,3 +8,5 @@ matplotlib
 tqdm
 opencv-python-headless
 numpy
+segmentation-models-pytorch
+timm
