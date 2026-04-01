@@ -14,7 +14,7 @@ class Config:
     NUM_CLASSES = 8 # LoveDA uses 7 classes + background (0)
     
     # Training Parameters
-    BATCH_SIZE = 8
+    BATCH_SIZE = 32 # Increased to fully saturate the 15GB T4 GPU VRAM
     LEARNING_RATE = 1e-4
     NUM_EPOCHS = 20
     IMAGE_SIZE = 224 # Resize size for inputs (Forced to 224 for Swin Transformer strict patch embedding requirement)
