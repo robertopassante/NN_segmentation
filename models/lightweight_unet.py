@@ -50,7 +50,8 @@ class LightweightUNet(nn.Module):
                 
                 # Carichiamo i pesi nell'encoder (strict=False aggira piccoli mismatch architetturali periferici)
                 if os.path.exists(LOCAL_WEIGHTS_PATH):
-                    state_dict = torch.load(LOCAL_WEIGHTS_PATH, map_location="cpu")
+                    # PyTorch 2.6+ blocca custom objects per sicurezza. Siccome RSP usa yacs.config.CfgNode, forziamo weights_only=False
+                    state_dict = torch.load(LOCAL_WEIGHTS_PATH, map_location="cpu", weights_only=False)
                     # Spesso i modelli custom hanno la chiave "state_dict" o "model" che avvolge i pesi
                     if "state_dict" in state_dict:
                         state_dict = state_dict["state_dict"]
