@@ -52,14 +52,30 @@ class LightweightUNet(nn.Module):
                 if os.path.exists(LOCAL_WEIGHTS_PATH):
                     # PyTorch 2.6+ blocca custom objects per sicurezza. Siccome RSP usa yacs.config.CfgNode, forziamo weights_only=False
                     state_dict = torch.load(LOCAL_WEIGHTS_PATH, map_location="cpu", weights_only=False)
-                    # Spesso i modelli custom hanno la chiave "state_dict" o "model" che avvolge i pesi
+                    
                     if "state_dict" in state_dict:
                         state_dict = state_dict["state_dict"]
                     elif "model" in state_dict:
                         state_dict = state_dict["model"]
                         
-                    self.model.encoder.load_state_dict(state_dict, strict=False)
-                    print("🚀 Pesi satellitari Swin-T caricati con successo nel backbone!")
+                    # === CRITICAL KEY MAPPING ===
+                    # RSP weights use raw Swin names (e.g. layers.0.blocks.0.norm1.weight)
+                    # SMP Unet encoder expects "model." prefix and underscores for layers (e.g. model.layers_0.blocks...)
+                    mapped_state_dict = {}
+                    for k, v in state_dict.items():
+                        new_k = "model." + k
+                        new_k = new_k.replace("layers.0", "layers_0")
+                        new_k = new_k.replace("layers.1", "layers_1")
+                        new_k = new_k.replace("layers.2", "layers_2")
+                        new_k = new_k.replace("layers.3", "layers_3")
+                        mapped_state_dict[new_k] = v
+
+                    missing, unexpected = self.model.encoder.load_state_dict(mapped_state_dict, strict=False)
+                    
+                    if len(missing) > 100:
+                        print("⚠️ ATTENZIONE: La maggior parte dei pesi non ha matchato (nomi file incompatibili?). Il backbone è rimasto random.")
+                    else:
+                        print("🚀 Pesi satellitari Swin-T (RSP) mappati e iniettati chirurgicamente con successo!")
                     
         except Exception as e:
             print(f"Could not load requested backbone {encoder_name}: {e}")
