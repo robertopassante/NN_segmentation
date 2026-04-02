@@ -34,9 +34,12 @@ def main(args):
     )
     model = model.to(Config.DEVICE)
     
-    # 3. Setup Optimizer and Loss
-    # Optimize all parameters of the lightweight model
-    optimizer = torch.optim.Adam(model.parameters(), lr=Config.LEARNING_RATE)
+    # 3. Setup Optimizer and Loss con WARMUP
+    print("Congelamento Backbone Swin-T attivato per prevenire il Gradient Shock...")
+    for param in model.model.encoder.parameters():
+        param.requires_grad = False
+        
+    optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=Config.LEARNING_RATE)
     criterion = nn.CrossEntropyLoss()
     
     train_losses = []
@@ -44,6 +47,12 @@ def main(args):
     
     print("Starting Training Loop...")
     for epoch in range(Config.NUM_EPOCHS):
+        if epoch == 3:
+            print("\n🔥 SCONGELAMENTO BACKBONE: Inizio Fine-Tuning Profondo! 🔥")
+            for param in model.model.encoder.parameters():
+                param.requires_grad = True
+            # Reinizializza l'ottimizzatore per includere il backbone con un learning rate bassissimo
+            optimizer = torch.optim.Adam(model.parameters(), lr=Config.LEARNING_RATE / 10)
         print(f"\n--- Epoch {epoch+1}/{Config.NUM_EPOCHS} ---")
         
         # Stop dryrun after 1 batch
