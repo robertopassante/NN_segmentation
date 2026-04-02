@@ -40,7 +40,17 @@ def main(args):
         param.requires_grad = False
         
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=Config.LEARNING_RATE)
-    criterion = nn.CrossEntropyLoss()
+    import segmentation_models_pytorch as smp_module
+    class CombinedLoss(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.ce = nn.CrossEntropyLoss()
+            self.dice = smp_module.losses.DiceLoss(mode='multiclass')
+        def forward(self, preds, targets):
+            return self.ce(preds, targets) + self.dice(preds, targets)
+            
+    criterion = CombinedLoss()
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=Config.NUM_EPOCHS)
     
     train_losses = []
     val_losses = []
@@ -53,6 +63,7 @@ def main(args):
                 param.requires_grad = True
             # Reinizializza l'ottimizzatore per includere il backbone con un learning rate bassissimo
             optimizer = torch.optim.Adam(model.parameters(), lr=Config.LEARNING_RATE / 10)
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=Config.NUM_EPOCHS - 3)
         print(f"\n--- Epoch {epoch+1}/{Config.NUM_EPOCHS} ---")
         
         # Stop dryrun after 1 batch
@@ -61,6 +72,7 @@ def main(args):
             break
             
         train_loss = train_one_epoch(model, train_loader, criterion, optimizer, Config.DEVICE)
+        scheduler.step()
         val_loss, val_acc, val_miou, val_dice = evaluate(model, val_loader, criterion, Config.DEVICE, num_classes=Config.NUM_CLASSES)
         
         train_losses.append(train_loss)
