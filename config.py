@@ -16,7 +16,7 @@ class Config:
     # Training Parameters
     BATCH_SIZE = 32 # Increased to fully saturate the 15GB T4 GPU VRAM
     LEARNING_RATE = 1e-4
-    NUM_EPOCHS = 40 # Increased to allow Swin to reach >75% performance
+    NUM_EPOCHS = 30 # Balanced per testare la convergenza (+75%) in tempi record su Colab
     IMAGE_SIZE = 224 # Resize size for inputs (Forced to 224 for Swin Transformer strict patch embedding requirement)
     
     # Wavelet parameters (ISPAMM integration)
