@@ -58,16 +58,26 @@ class LightweightUNet(nn.Module):
                     elif "model" in state_dict:
                         state_dict = state_dict["model"]
                         
-                    # === CRITICAL KEY MAPPING ===
-                    # RSP weights use raw Swin names (e.g. layers.0.blocks.0.norm1.weight)
-                    # SMP Unet encoder expects "model." prefix and underscores for layers (e.g. model.layers_0.blocks...)
+                    # === SUPER CRITICAL KEY MAPPING ===
+                    # I ricercatori di RSP hanno usato una vecchia versione architetturale di Swin.
+                    # Nelle vecchie versioni: il downsample avviene alla FINE dello stadio i (es. layers.0.downsample)
+                    # Nella versione moderna (smp/timm): il downsample avviene all'INIZIO dello stadio i+1 (es. model.layers_1.downsample)
                     mapped_state_dict = {}
                     for k, v in state_dict.items():
                         new_k = "model." + k
-                        new_k = new_k.replace("layers.0", "layers_0")
-                        new_k = new_k.replace("layers.1", "layers_1")
-                        new_k = new_k.replace("layers.2", "layers_2")
-                        new_k = new_k.replace("layers.3", "layers_3")
+                        
+                        if "downsample" in k:
+                            # Separliamo la stringa: ["model", "layers", "0", "downsample", ...]
+                            parts = new_k.split('.')
+                            if parts[1] == "layers":
+                                layer_idx = int(parts[2])
+                                parts[2] = str(layer_idx + 1) # Mettiamo lo shift in avanti di +1
+                            # Ricongiungiamo e mettiamo l'underscore che serve a smp
+                            new_k = ".".join(parts).replace("layers.", "layers_")
+                        else:
+                            # Semplice sostituzione del punto con l'underscore per i layer normali
+                            new_k = new_k.replace("layers.", "layers_")
+                            
                         mapped_state_dict[new_k] = v
 
                     missing, unexpected = self.model.encoder.load_state_dict(mapped_state_dict, strict=False)
