@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import cv2
 from torch.utils.data import Dataset
-from torchgeo.datasets import LoveDA, LandCoverAI
+from torchgeo.datasets import LoveDA, LandCoverAI, DeepGlobeLandCover
 from config import Config
 
 class SatelliteSegmentationDataset(Dataset):
@@ -34,6 +34,15 @@ class SatelliteSegmentationDataset(Dataset):
             self.geo_dataset = LandCoverAI(
                 root=os.path.join(self.data_dir, "landcoverai"), 
                 split=self.split, 
+                download=True, 
+                checksum=False
+            )
+        elif self.dataset_name == "deepglobe":
+            # DeepGlobe usa la dicitura 'valid' invece di 'val'
+            dg_split = "valid" if self.split == "val" else self.split
+            self.geo_dataset = DeepGlobeLandCover(
+                root=os.path.join(self.data_dir, "deepglobe"), 
+                split=dg_split, 
                 download=True, 
                 checksum=False
             )
