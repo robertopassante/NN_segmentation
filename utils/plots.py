@@ -41,13 +41,13 @@ def save_predictions(images, masks, logits, save_dir, epoch, batch_idx, mIoU=Non
         
         # Ground Truth Mask
         ax_gt = axes[i][1]
-        ax_gt.imshow(masks[i], cmap='gray')
+        ax_gt.imshow(masks[i], cmap='tab10', vmin=0, vmax=7, interpolation='nearest')
         ax_gt.set_title("Ground Truth Mask")
         ax_gt.axis('off')
         
         # Prediction
         ax_pred = axes[i][2]
-        ax_pred.imshow(preds[i], cmap='jet')
+        ax_pred.imshow(preds[i], cmap='tab10', vmin=0, vmax=7, interpolation='nearest')
         title_str = "Model Prediction"
         if mIoU is not None and mDice is not None:
             title_str += f"\nmIoU: {mIoU:.4f} | Dice: {mDice:.4f}"
