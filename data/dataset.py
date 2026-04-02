@@ -3,31 +3,42 @@ import torch
 import numpy as np
 import cv2
 from torch.utils.data import Dataset
-from torchgeo.datasets import LoveDA
+from torchgeo.datasets import LoveDA, LandCoverAI
+from config import Config
 
 class SatelliteSegmentationDataset(Dataset):
     def __init__(self, data_dir, transform=None, split="train"):
         """
-        Uses torchgeo's LoveDA dataset.
+        Uses torchgeo's datasets dynamically based on Config.DATASET_NAME
         data_dir: where to store/download the data
         split: "train", "val", or "test"
         """
         self.data_dir = data_dir
         self.transform = transform
         self.split = split
+        self.dataset_name = Config.DATASET_NAME.lower()
         
         # Ensure base directory exists
         os.makedirs(data_dir, exist_ok=True)
         
-        print(f"Initializing TorchGeo LoveDA ({split} split)...")
-        print("This will auto-download the LoveDA dataset if not already present.")
+        print(f"Initializing TorchGeo {self.dataset_name.upper()} ({split} split)...")
         
-        self.geo_dataset = LoveDA(
-            root=self.data_dir, 
-            split=self.split, 
-            download=True, 
-            checksum=False
-        )
+        if self.dataset_name == "loveda":
+            self.geo_dataset = LoveDA(
+                root=self.data_dir, # Per LoveDA manteniamo la root standard per non doverlo riscaricare
+                split=self.split, 
+                download=True, 
+                checksum=False
+            )
+        elif self.dataset_name == "landcoverai":
+            self.geo_dataset = LandCoverAI(
+                root=os.path.join(self.data_dir, "landcoverai"), 
+                split=self.split, 
+                download=True, 
+                checksum=False
+            )
+        else:
+            raise ValueError(f"Dataset {self.dataset_name} non implementato nel wrapper.")
             
     def __len__(self):
         return len(self.geo_dataset)

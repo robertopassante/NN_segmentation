@@ -11,7 +11,15 @@ class Config:
     # Model Settings
     SAM_CHECKPOINT_PATH = "sam_vit_b_01ec64.pth" # Path to downloaded SAM weights
     ENCODER_NAME = "tu-swin_tiny_patch4_window7_224" # Lightweight Swin Transformer backbone
-    NUM_CLASSES = 8 # LoveDA uses 7 classes + background (0)
+    DATASET_NAME = "loveda" # Opzioni: "loveda", "landcoverai"
+    
+    # Adattamento Dinamico delle Classi
+    if DATASET_NAME == "loveda":
+        NUM_CLASSES = 8 # 7 classi originali + 1 background
+    elif DATASET_NAME == "landcoverai":
+        NUM_CLASSES = 5 # 4 classi + 1 background
+    else:
+        NUM_CLASSES = 2
     
     # Training Parameters
     BATCH_SIZE = 32 # Increased to fully saturate the 15GB T4 GPU VRAM
