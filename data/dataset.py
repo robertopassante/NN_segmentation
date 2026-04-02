@@ -42,9 +42,8 @@ class SatelliteSegmentationDataset(Dataset):
             dg_split = "valid" if self.split == "val" else self.split
             self.geo_dataset = DeepGlobeLandCover(
                 root=os.path.join(self.data_dir, "deepglobe"), 
-                split=dg_split, 
-                download=True, 
-                checksum=False
+                split=dg_split
+                # NON possiamo passare download=True perché TorchGeo non lo permette per i dataset di Kaggle
             )
         else:
             raise ValueError(f"Dataset {self.dataset_name} non implementato nel wrapper.")
