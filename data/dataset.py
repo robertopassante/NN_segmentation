@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import cv2
 from torch.utils.data import Dataset
-from torchgeo.datasets import LoveDA, LandCoverAI, DeepGlobeLandCover
+from torchgeo.datasets import LoveDA, LandCoverAI, DeepGlobeLandCover, ChesapeakeCVPR
 from config import Config
 
 class SatelliteSegmentationDataset(Dataset):
@@ -31,6 +31,7 @@ class SatelliteSegmentationDataset(Dataset):
                 checksum=False
             )
         elif self.dataset_name == "landcoverai":
+            # LandCover.ai uses 'train', 'val', 'test'
             self.geo_dataset = LandCoverAI(
                 root=self.data_dir, 
                 split=self.split, 
@@ -45,6 +46,16 @@ class SatelliteSegmentationDataset(Dataset):
                 split=dg_split
                 # NON possiamo passare download=True perché TorchGeo non lo permette per i dataset di Kaggle
             )
+        elif self.dataset_name == "chesapeake":
+            # Usiamo solo la Virginia ('va') per tenere il peso ridotto
+            # Mappiamo i nostri split generici agli split specifici di Chesapeake VA
+            cp_split = f"va-{self.split}" 
+            self.geo_dataset = ChesapeakeCVPR(
+                root=os.path.join(self.data_dir, "chesapeake"), 
+                splits=[cp_split], 
+                layers=["naip-new", "lc"], 
+                download=False # Già scaricato manualmente dallo user
+            )
         else:
             raise ValueError(f"Dataset {self.dataset_name} non implementato nel wrapper.")
             
@@ -56,6 +67,10 @@ class SatelliteSegmentationDataset(Dataset):
         sample = self.geo_dataset[idx]
         image = sample["image"] # (C, H, W) tensor
         mask = sample["mask"]   # (H, W) or (1, H, W) tensor
+        
+        # Chesapeake NAIP ha 4 canali (R, G, B, NIR). Prendiamo solo i primi 3 per il modello
+        if self.dataset_name == "chesapeake" and image.shape[0] == 4:
+            image = image[:3]
         
         # Convert to numpy for Albumentations (H, W, C)
         image_np = image.numpy().transpose(1, 2, 0)
