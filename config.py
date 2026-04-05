@@ -11,7 +11,7 @@ class Config:
     # Model Settings
     SAM_CHECKPOINT_PATH = "sam_vit_b_01ec64.pth" # Path to downloaded SAM weights
     ENCODER_NAME = "tu-swin_tiny_patch4_window7_224" # Lightweight Swin Transformer backbone
-    DATASET_NAME = "deepglobe" # Opzioni: "loveda", "landcoverai", "deepglobe"
+    DATASET_NAME = "loveda" # Opzioni: "loveda", "landcoverai", "deepglobe"
     
     # Adattamento Dinamico delle Classi
     if DATASET_NAME == "loveda":
@@ -20,6 +20,8 @@ class Config:
         NUM_CLASSES = 5 # 4 classi + 1 background
     elif DATASET_NAME == "deepglobe":
         NUM_CLASSES = 7 # 6 classi (Urban, Forest, Water...) + 1 unknown
+    elif DATASET_NAME == "chesapeake":
+        NUM_CLASSES = 7 # Water, Tree Canopy, Field, Barren, Impervious Surface, Impervious Road, No-Data
     else:
         NUM_CLASSES = 2
     
