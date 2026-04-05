@@ -32,7 +32,7 @@ class SatelliteSegmentationDataset(Dataset):
             )
         elif self.dataset_name == "landcoverai":
             self.geo_dataset = LandCoverAI(
-                root=os.path.join(self.data_dir, "landcoverai"), 
+                root=self.data_dir, 
                 split=self.split, 
                 download=True, 
                 checksum=False
