@@ -2,6 +2,7 @@ import os
 import torch
 import torch.nn as nn
 import segmentation_models_pytorch as smp
+import safetensors.torch
 
 class LightweightUNet(nn.Module):
     def __init__(self, num_classes=2, encoder_name="tu-swin_tiny_patch4_window7_224", use_satellite_weights=True):
@@ -36,22 +37,21 @@ class LightweightUNet(nn.Module):
                 
                 # INSERISCI QUI IL LINK DIRETTO AL FILE .pth SATELLITARE (es. da HuggingFace)
                 # Oppure scarica il file a mano e mettilo nella cartella del progetto chiamato 'rsp-swin-t-ckpt.pth'
-                RS_WEIGHTS_URL = "INSERISCI_QUI_IL_LINK_DIRETTO_HUGGINGFACE.pth" 
-                LOCAL_WEIGHTS_PATH = "rsp-swin-t-ckpt.pth"
+                RS_WEIGHTS_URL = "https://huggingface.co/BiliSakura/RSP-Swin-T/resolve/main/model.safetensors" 
+                LOCAL_WEIGHTS_PATH = "rsp-swin-t-ckpt.safetensors"
                 
                 if not os.path.exists(LOCAL_WEIGHTS_PATH):
                     print(f"File locale non trovato. Provo a scaricare i pesi da {RS_WEIGHTS_URL} ...")
                     try:
-                        torch.hub.download_url_to_file(RS_WEIGHTS_URL, LOCAL_WEIGHTS_PATH)
+                        os.system(f"wget -O {LOCAL_WEIGHTS_PATH} {RS_WEIGHTS_URL}")
                         print("Download completato con successo!")
                     except Exception as e:
-                        print(f"Attenzione: download automatico fallito (link mancante o errato): {e}")
-                        print("Per favore, scarica il file .pth satellitare a mano e salvalo come 'rsp-swin-t-ckpt.pth' nella stessa cartella.")
+                        print(f"Attenzione: download automatico fallito: {e}")
                 
                 # Carichiamo i pesi nell'encoder (strict=False aggira piccoli mismatch architetturali periferici)
                 if os.path.exists(LOCAL_WEIGHTS_PATH):
-                    # PyTorch 2.6+ blocca custom objects per sicurezza. Siccome RSP usa yacs.config.CfgNode, forziamo weights_only=False
-                    state_dict = torch.load(LOCAL_WEIGHTS_PATH, map_location="cpu", weights_only=False)
+                    # Uso Safetensors invece di torch.load
+                    state_dict = safetensors.torch.load_file(LOCAL_WEIGHTS_PATH, device="cpu")
                     
                     if "state_dict" in state_dict:
                         state_dict = state_dict["state_dict"]
