@@ -14,8 +14,8 @@ class Config:
     DATASET_NAME = "openearthmap" # Opzioni: "loveda", "landcoverai", "deepglobe", "chesapeake", "openearthmap"
     
     # Subset: limita il numero di immagini per velocizzare il training (None = usa tutto)
-    MAX_TRAIN_SAMPLES = 2000
-    MAX_VAL_SAMPLES = 500
+    MAX_TRAIN_SAMPLES = 3000
+    MAX_VAL_SAMPLES = 600
     
     # Adattamento Dinamico delle Classi
     if DATASET_NAME == "loveda":
