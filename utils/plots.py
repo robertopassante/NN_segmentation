@@ -23,23 +23,39 @@ def save_predictions(images, masks, logits, save_dir, epoch, batch_idx, mIoU=Non
     images = images.cpu().numpy().transpose(0, 2, 3, 1) # B, H, W, C
     masks = masks.cpu().numpy()
     
-    # Per rassicurare l'utente, non peschiamo le prime 4 (che potrebbero essere solo foreste noiose),
-    # ma peschiamo attivamente le 4 foto con più classi diverse (strade, acqua, edifici) presenti nella maschera!
-    scores = []
+    # Seleziona 4 immagini diverse per categoria dominante (edifici, boschi, acqua, strade)
+    # LandCover.ai classi: 0=Background, 1=Edifici, 2=Boschi, 3=Acqua, 4=Strade
+    target_classes = [1, 2, 3, 4]  # Edifici, Boschi, Acqua, Strade
+    class_labels = {1: "Edifici", 2: "Boschi", 3: "Acqua", 4: "Strade"}
+    
+    # Per ogni categoria, trova le immagini dove quella classe e' presente
+    buckets = {c: [] for c in target_classes}
     for j in range(masks.shape[0]):
         unique_classes = np.unique(masks[j])
-        score = len(unique_classes)
-        # LandCover.ai: 1=Edifici, 2=Boschi, 3=Acqua, 4=Strade (diamo priorità a chi ha acqua/edifici)
-        if 1 in unique_classes: score += 10
-        if 3 in unique_classes: score += 10
-        if 4 in unique_classes: score += 10
-        scores.append(score)
-        
-    best_indices = np.argsort(scores)[::-1]
-    num_to_display = min(4, images.shape[0])
-    best_indices = best_indices[:num_to_display]
+        for c in target_classes:
+            if c in unique_classes:
+                buckets[c].append(j)
     
-    batch_size = num_to_display
+    # Pesca casualmente 1 immagine per categoria (cosi ogni run e' diversa)
+    best_indices = []
+    used = set()
+    for c in target_classes:
+        candidates = [idx for idx in buckets[c] if idx not in used]
+        if candidates:
+            pick = candidates[np.random.randint(len(candidates))]
+            best_indices.append(pick)
+            used.add(pick)
+    
+    # Se qualche categoria mancava nel batch, riempi con immagini random non usate
+    if len(best_indices) < 4:
+        remaining = [j for j in range(masks.shape[0]) if j not in used]
+        np.random.shuffle(remaining)
+        for idx in remaining:
+            if len(best_indices) >= 4:
+                break
+            best_indices.append(idx)
+    
+    batch_size = len(best_indices)
     
     fig, axes = plt.subplots(batch_size, 3, figsize=(15, 5*batch_size))
     
