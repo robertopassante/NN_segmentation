@@ -23,8 +23,23 @@ def save_predictions(images, masks, logits, save_dir, epoch, batch_idx, mIoU=Non
     images = images.cpu().numpy().transpose(0, 2, 3, 1) # B, H, W, C
     masks = masks.cpu().numpy()
     
-    # Save up to 4 images from the batch
-    batch_size = min(4, images.shape[0])
+    # Per rassicurare l'utente, non peschiamo le prime 4 (che potrebbero essere solo foreste noiose),
+    # ma peschiamo attivamente le 4 foto con più classi diverse (strade, acqua, edifici) presenti nella maschera!
+    scores = []
+    for j in range(masks.shape[0]):
+        unique_classes = np.unique(masks[j])
+        score = len(unique_classes)
+        # LandCover.ai: 1=Edifici, 2=Boschi, 3=Acqua, 4=Strade (diamo priorità a chi ha acqua/edifici)
+        if 1 in unique_classes: score += 10
+        if 3 in unique_classes: score += 10
+        if 4 in unique_classes: score += 10
+        scores.append(score)
+        
+    best_indices = np.argsort(scores)[::-1]
+    num_to_display = min(4, images.shape[0])
+    best_indices = best_indices[:num_to_display]
+    
+    batch_size = num_to_display
     
     fig, axes = plt.subplots(batch_size, 3, figsize=(15, 5*batch_size))
     
@@ -35,7 +50,7 @@ def save_predictions(images, masks, logits, save_dir, epoch, batch_idx, mIoU=Non
         # Original Image
         ax_img = axes[i][0]
         # De-normalize mathematically to show the true satellite photo
-        disp_img = images[i]
+        disp_img = images[best_indices[i]]
         mean = np.array([0.485, 0.456, 0.406])
         std = np.array([0.229, 0.224, 0.225])
         disp_img = disp_img * std + mean
@@ -47,13 +62,13 @@ def save_predictions(images, masks, logits, save_dir, epoch, batch_idx, mIoU=Non
         
         # Ground Truth Mask
         ax_gt = axes[i][1]
-        ax_gt.imshow(masks[i], cmap='tab10', vmin=0, vmax=7, interpolation='nearest')
+        ax_gt.imshow(masks[best_indices[i]], cmap='tab10', vmin=0, vmax=7, interpolation='nearest')
         ax_gt.set_title("Ground Truth Mask")
         ax_gt.axis('off')
         
         # Prediction
         ax_pred = axes[i][2]
-        ax_pred.imshow(preds[i], cmap='tab10', vmin=0, vmax=7, interpolation='nearest')
+        ax_pred.imshow(preds[best_indices[i]], cmap='tab10', vmin=0, vmax=7, interpolation='nearest')
         title_str = "Model Prediction"
         if mIoU is not None and mDice is not None:
             title_str += f"\nmIoU: {mIoU:.4f} | Dice: {mDice:.4f}"
