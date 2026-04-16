@@ -90,7 +90,7 @@ class SatelliteSegmentationDataset(Dataset):
             
         # Convert back to tensor
         # image should be (3, H, W) float
-        image_tensor = torch.from_numpy(image_np.transpose(2, 0, 1)).float() / 255.0
+        image_tensor = torch.from_numpy(image_np.transpose(2, 0, 1)).float()
         mask_tensor = torch.from_numpy(mask_np).long()
 
         return image_tensor, mask_tensor
