@@ -15,7 +15,11 @@ class Config:
     
     # Subset: limita il numero di immagini per velocizzare il training (None = usa tutto)
     MAX_TRAIN_SAMPLES = 3000
+<<<<<<< HEAD
     MAX_VAL_SAMPLES = 600
+=======
+    MAX_VAL_SAMPLES = 500
+>>>>>>> eb462421075ff1bf6ac08e067ba3d7a9a684bd38
     
     # Adattamento Dinamico delle Classi
     if DATASET_NAME == "loveda":
