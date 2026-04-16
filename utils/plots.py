@@ -23,28 +23,31 @@ def save_predictions(images, masks, logits, save_dir, epoch, batch_idx, mIoU=Non
     images = images.cpu().numpy().transpose(0, 2, 3, 1) # B, H, W, C
     masks = masks.cpu().numpy()
     
-    # Seleziona 4 immagini diverse per categoria dominante (edifici, boschi, acqua, strade)
+    # Seleziona 4 immagini dove ogni categoria e' DOMINANTE (la maggioranza dei pixel)
     # LandCover.ai classi: 0=Background, 1=Edifici, 2=Boschi, 3=Acqua, 4=Strade
     target_classes = [1, 2, 3, 4]  # Edifici, Boschi, Acqua, Strade
-    class_labels = {1: "Edifici", 2: "Boschi", 3: "Acqua", 4: "Strade"}
     
-    # Per ogni categoria, trova le immagini dove quella classe e' presente
-    buckets = {c: [] for c in target_classes}
+    # Per ogni immagine, calcola quale classe non-background ha piu' pixel
+    # Per ogni classe target, tieni l'immagine dove quella classe copre la % piu' alta
+    best_per_class = {}  # class -> (image_index, pixel_percentage)
     for j in range(masks.shape[0]):
-        unique_classes = np.unique(masks[j])
+        total_pixels = masks[j].size
         for c in target_classes:
-            if c in unique_classes:
-                buckets[c].append(j)
+            count = np.sum(masks[j] == c)
+            pct = count / total_pixels
+            if pct > 0.05:  # almeno 5% dei pixel per contare
+                if c not in best_per_class or pct > best_per_class[c][1]:
+                    best_per_class[c] = (j, pct)
     
-    # Pesca casualmente 1 immagine per categoria (cosi ogni run e' diversa)
+    # Pesca 1 immagine per categoria, quella dove la classe domina di piu'
     best_indices = []
     used = set()
     for c in target_classes:
-        candidates = [idx for idx in buckets[c] if idx not in used]
-        if candidates:
-            pick = candidates[np.random.randint(len(candidates))]
-            best_indices.append(pick)
-            used.add(pick)
+        if c in best_per_class:
+            idx = best_per_class[c][0]
+            if idx not in used:
+                best_indices.append(idx)
+                used.add(idx)
     
     # Se qualche categoria mancava nel batch, riempi con immagini random non usate
     if len(best_indices) < 4:
