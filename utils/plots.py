@@ -65,33 +65,59 @@ def save_predictions(images, masks, logits, save_dir, epoch, batch_idx, mIoU=Non
     if batch_size == 1:
         axes = [axes]
         
+    # Nomi delle categorie dominanti in ordine di selezione
+    category_names = {1: "Edifici", 2: "Boschi", 3: "Acqua", 4: "Strade"}
+    selected_categories = []
+    for c in target_classes:
+        if c in best_per_class and best_per_class[c][0] in best_indices:
+            selected_categories.append(category_names[c])
+    # Riempi con "Vario" se ci sono slot extra
+    while len(selected_categories) < batch_size:
+        selected_categories.append("Vario")
+
     for i in range(batch_size):
+        idx = best_indices[i]
+        cat_name = selected_categories[i] if i < len(selected_categories) else "Vario"
+
+        # --- Calcola IoU e Dice per questa singola immagine ---
+        gt_img = masks[idx]
+        pred_img = preds[idx]
+        classes_present = np.unique(gt_img)
+        per_class_iou = []
+        per_class_dice = []
+        for c in classes_present:
+            gt_c = (gt_img == c)
+            pred_c = (pred_img == c)
+            intersection = np.logical_and(gt_c, pred_c).sum()
+            union = np.logical_or(gt_c, pred_c).sum()
+            iou_c = intersection / (union + 1e-6)
+            dice_c = 2 * intersection / (gt_c.sum() + pred_c.sum() + 1e-6)
+            per_class_iou.append(iou_c)
+            per_class_dice.append(dice_c)
+        img_iou = np.mean(per_class_iou) if per_class_iou else 0.0
+        img_dice = np.mean(per_class_dice) if per_class_dice else 0.0
+
         # Original Image
         ax_img = axes[i][0]
-        # De-normalize mathematically to show the true satellite photo
-        disp_img = images[best_indices[i]]
+        disp_img = images[idx]
         mean = np.array([0.485, 0.456, 0.406])
         std = np.array([0.229, 0.224, 0.225])
         disp_img = disp_img * std + mean
         disp_img = np.clip(disp_img, 0, 1)
-        
         ax_img.imshow(disp_img)
-        ax_img.set_title("Input Image")
+        ax_img.set_title(f"Input Image [{cat_name}]")
         ax_img.axis('off')
-        
+
         # Ground Truth Mask
         ax_gt = axes[i][1]
-        ax_gt.imshow(masks[best_indices[i]], cmap='tab10', vmin=0, vmax=7, interpolation='nearest')
-        ax_gt.set_title("Ground Truth Mask")
+        ax_gt.imshow(gt_img, cmap='tab10', vmin=0, vmax=7, interpolation='nearest')
+        ax_gt.set_title("Ground Truth")
         ax_gt.axis('off')
-        
-        # Prediction
+
+        # Prediction con metriche PER IMMAGINE
         ax_pred = axes[i][2]
-        ax_pred.imshow(preds[best_indices[i]], cmap='tab10', vmin=0, vmax=7, interpolation='nearest')
-        title_str = "Model Prediction"
-        if mIoU is not None and mDice is not None:
-            title_str += f"\nmIoU: {mIoU:.4f} | Dice: {mDice:.4f}"
-        ax_pred.set_title(title_str)
+        ax_pred.imshow(pred_img, cmap='tab10', vmin=0, vmax=7, interpolation='nearest')
+        ax_pred.set_title(f"Prediction\nIoU: {img_iou:.3f} | Dice: {img_dice:.3f}")
         ax_pred.axis('off')
         
     plt.tight_layout()
