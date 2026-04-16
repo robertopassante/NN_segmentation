@@ -24,9 +24,9 @@ def save_predictions(images, masks, logits, save_dir, epoch, batch_idx, mIoU=Non
     masks = masks.cpu().numpy()
     
     # Seleziona 4 immagini dove ogni categoria e' DOMINANTE (la maggioranza dei pixel)
-    # LoveDA classi: 0=Background, 1=Building, 2=Road, 3=Water, 4=Barren, 5=Forest, 6=Agriculture
-    # Scegliamo 4 categorie diverse e interessanti (escludiamo Forest che domina ovunque)
-    target_classes = [1, 3, 6, 2]  # Building, Water, Agriculture, Road
+    # OpenEarthMap classi: 0=BG, 1=Bareland, 2=Rangeland, 3=Developed, 4=Road, 5=Tree, 6=Water, 7=Agriculture, 8=Building
+    # Scegliamo 4 categorie diverse e visivamente interessanti
+    target_classes = [8, 6, 7, 4]  # Building, Water, Agriculture, Road
     
     # Per ogni immagine, calcola quale classe non-background ha piu' pixel
     # Per ogni classe target, tieni l'immagine dove quella classe copre la % piu' alta
@@ -66,8 +66,11 @@ def save_predictions(images, masks, logits, save_dir, epoch, batch_idx, mIoU=Non
     if batch_size == 1:
         axes = [axes]
         
-    # Nomi delle categorie dominanti in ordine di selezione
-    category_names = {1: "Edifici", 2: "Strade", 3: "Acqua", 4: "Terreno", 5: "Foresta", 6: "Agricoltura"}
+    # Nomi delle categorie OpenEarthMap
+    category_names = {
+        1: "Terreno", 2: "Prateria", 3: "Urbano", 4: "Strade",
+        5: "Alberi", 6: "Acqua", 7: "Agricoltura", 8: "Edifici"
+    }
     selected_categories = []
     for c in target_classes:
         if c in best_per_class and best_per_class[c][0] in best_indices:

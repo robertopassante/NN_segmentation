@@ -2,8 +2,8 @@ import os
 import torch
 import numpy as np
 import cv2
-from torch.utils.data import Dataset
-from torchgeo.datasets import LoveDA, LandCoverAI, DeepGlobeLandCover, ChesapeakeCVPR
+from torch.utils.data import Dataset, Subset
+from torchgeo.datasets import LoveDA, LandCoverAI, DeepGlobeLandCover, ChesapeakeCVPR, OpenEarthMap
 from config import Config
 
 class SatelliteSegmentationDataset(Dataset):
@@ -25,39 +25,57 @@ class SatelliteSegmentationDataset(Dataset):
         
         if self.dataset_name == "loveda":
             self.geo_dataset = LoveDA(
-                root=self.data_dir, # Per LoveDA manteniamo la root standard per non doverlo riscaricare
+                root=self.data_dir,
                 split=self.split, 
                 download=True, 
                 checksum=False
             )
         elif self.dataset_name == "landcoverai":
-            # LandCover.ai uses 'train', 'val', 'test'
             self.geo_dataset = LandCoverAI(
                 root=self.data_dir, 
                 split=self.split, 
                 download=True, 
                 checksum=False
             )
+        elif self.dataset_name == "openearthmap":
+            self.geo_dataset = OpenEarthMap(
+                root=self.data_dir,
+                split=self.split,
+                download=False,  # Scaricato manualmente da Drive
+                checksum=False
+            )
         elif self.dataset_name == "deepglobe":
-            # DeepGlobe usa la dicitura 'valid' invece di 'val'
             dg_split = "valid" if self.split == "val" else self.split
             self.geo_dataset = DeepGlobeLandCover(
                 root=os.path.join(self.data_dir, "deepglobe"), 
                 split=dg_split
-                # NON possiamo passare download=True perché TorchGeo non lo permette per i dataset di Kaggle
             )
         elif self.dataset_name == "chesapeake":
-            # Usiamo solo la Virginia ('va') per tenere il peso ridotto
-            # Mappiamo i nostri split generici agli split specifici di Chesapeake VA
             cp_split = f"va-{self.split}" 
             self.geo_dataset = ChesapeakeCVPR(
                 root=os.path.join(self.data_dir, "chesapeake"), 
                 splits=[cp_split], 
                 layers=["naip-new", "lc"], 
-                download=False # Già scaricato manualmente dallo user
+                download=False
             )
         else:
             raise ValueError(f"Dataset {self.dataset_name} non implementato nel wrapper.")
+        
+        # --- SUBSET: limita il numero di immagini per velocizzare il training ---
+        max_samples = None
+        if split == "train" and Config.MAX_TRAIN_SAMPLES is not None:
+            max_samples = Config.MAX_TRAIN_SAMPLES
+        elif split == "val" and Config.MAX_VAL_SAMPLES is not None:
+            max_samples = Config.MAX_VAL_SAMPLES
+            
+        if max_samples is not None and len(self.geo_dataset) > max_samples:
+            indices = np.random.RandomState(42).choice(
+                len(self.geo_dataset), size=max_samples, replace=False
+            )
+            self.geo_dataset = Subset(self.geo_dataset, indices)
+            print(f"[SUBSET] Usando {max_samples}/{len(self.geo_dataset) + max_samples} immagini per {split}")
+        else:
+            print(f"[INFO] Usando tutte le {len(self.geo_dataset)} immagini per {split}")
             
     def __len__(self):
         return len(self.geo_dataset)
