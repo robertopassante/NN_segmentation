@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import os
 import torch
+import numpy as np
 
 def plot_loss_curves(train_losses, val_losses, save_path="loss_curve.png"):
     plt.figure(figsize=(10, 6))
@@ -33,8 +34,13 @@ def save_predictions(images, masks, logits, save_dir, epoch, batch_idx, mIoU=Non
     for i in range(batch_size):
         # Original Image
         ax_img = axes[i][0]
-        # De-normalize slightly for display if needed
+        # De-normalize mathematically to show the true satellite photo
         disp_img = images[i]
+        mean = np.array([0.485, 0.456, 0.406])
+        std = np.array([0.229, 0.224, 0.225])
+        disp_img = disp_img * std + mean
+        disp_img = np.clip(disp_img, 0, 1)
+        
         ax_img.imshow(disp_img)
         ax_img.set_title("Input Image")
         ax_img.axis('off')
