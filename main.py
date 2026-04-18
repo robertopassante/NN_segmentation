@@ -84,8 +84,8 @@ def main(args):
     class CombinedLoss(nn.Module):
         def __init__(self):
             super().__init__()
-            self.ce = nn.CrossEntropyLoss()
-            self.dice = smp_module.losses.DiceLoss(mode='multiclass')
+            self.ce = nn.CrossEntropyLoss(ignore_index=0)
+            self.dice = smp_module.losses.DiceLoss(mode='multiclass', classes=[1,2,3,4,5,6,7,8])
         def forward(self, preds, targets):
             return self.ce(preds, targets) + self.dice(preds, targets)
             

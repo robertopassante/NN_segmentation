@@ -123,8 +123,10 @@ def main(args):
     class CombinedLoss(nn.Module):
         def __init__(self):
             super().__init__()
-            self.ce   = nn.CrossEntropyLoss()
-            self.dice = smp_module.losses.DiceLoss(mode='multiclass')
+            # Ignoriamo la classe 0 (Unlabeled) per non confondere la rete con rumore di bordo
+            self.ce   = nn.CrossEntropyLoss(ignore_index=0)
+            # SMP DiceLoss non supporta ignore_index nativamente, ma possiamo passargli le classi da calcolare (da 1 a 8)
+            self.dice = smp_module.losses.DiceLoss(mode='multiclass', classes=[1,2,3,4,5,6,7,8])
         def forward(self, preds, targets):
             return self.ce(preds, targets) + self.dice(preds, targets)
 
