@@ -44,52 +44,17 @@ class OEMKaggleDataset(Dataset):
         self.images_dir = os.path.join(Config.IMAGES_DIR, split)
         self.labels_dir = os.path.join(Config.LABELS_DIR, split)
 
-        # ── Legge la lista di file dal txt ufficiale ──────────────────────
-        split_txt = os.path.join(Config.KAGGLE_INPUT_DIR, f"{split}.txt")
-        if not os.path.exists(split_txt):
+        # ── Legge direttamente tutti i file .tif dalla cartella ─────────
+        if not os.path.exists(self.images_dir):
             raise FileNotFoundError(
-                f"File split non trovato: {split_txt}\n"
-                f"Assicurati di aver allegato il dataset "
-                f"'global-land-cover-mapping-openearthmap' a questo notebook."
+                f"Cartella immagini non trovata: {self.images_dir}\n"
+                f"Verifica l'allocazione del dataset su Kaggle."
             )
 
-        with open(split_txt, "r") as f:
-            all_files = [line.strip() for line in f if line.strip()]
+        all_files = [f for f in os.listdir(self.images_dir) if f.endswith('.tif') or f.endswith('.png') or f.endswith('.jpg')]
+        self.file_list = sorted(all_files)
 
-        self.all_files = all_files
-        print(f"[OEM-Kaggle] Split '{split}': {len(all_files)} immagini totali nel dataset")
-
-        # ── Smart Subset: carica indici pre-calcolati se disponibili ──────
-        indices_file = os.path.join(Config.DATA_DIR, f"oem_{split}_indices.json")
-        if os.path.exists(indices_file):
-            with open(indices_file, "r", encoding="utf-8") as f:
-                index_data = json.load(f)
-
-            # Gli indici puntano alle posizioni nella lista all_files
-            self.file_list = [all_files[s["idx"]] for s in index_data["samples"]]
-            print(f"[OEM-Kaggle] ✅ Smart subset caricato: {len(self.file_list)} immagini")
-            print(f"   Soglia dominanza : {index_data.get('threshold', 0) * 100:.0f}%")
-            class_counts = index_data.get("class_counts", {})
-            class_names  = index_data.get("class_names", {})
-            for k, cnt in class_counts.items():
-                if int(cnt) > 0:
-                    name = class_names.get(k, f"Classe {k}")
-                    print(f"   [{k}] {name:<12}: {cnt}")
-        else:
-            # Fallback: usa tutta la lista (o un subset casuale)
-            max_samples = (Config.MAX_TRAIN_SAMPLES if split == "train"
-                           else Config.MAX_VAL_SAMPLES)
-            if max_samples and len(all_files) > max_samples:
-                rng = np.random.RandomState(42)
-                chosen = rng.choice(len(all_files), size=max_samples, replace=False)
-                self.file_list = [all_files[i] for i in sorted(chosen)]
-                print(f"[OEM-Kaggle] ⚠️ Nessun JSON indici trovato — "
-                      f"subset casuale: {max_samples} immagini")
-            else:
-                self.file_list = all_files
-                print(f"[OEM-Kaggle] ⚠️ Nessun JSON indici trovato — "
-                      f"uso tutto il dataset: {len(self.file_list)} immagini")
-            print(f"   Esegui prepare_dataset_kaggle.py per il subset intelligente.")
+        print(f"[OEM-Kaggle] Split '{split}': {len(self.file_list)} immagini caricate per il training/val")
 
     def __len__(self) -> int:
         return len(self.file_list)

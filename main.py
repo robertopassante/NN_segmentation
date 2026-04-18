@@ -10,6 +10,35 @@ from data.transforms import get_train_transforms, get_val_transforms
 from models.lightweight_unet import LightweightUNet
 from utils.engine import train_one_epoch, evaluate
 from utils.plots import plot_loss_curves, save_predictions
+from tqdm import tqdm
+import random
+
+def prepare_visualization_pools(dataset, target_classes):
+    """
+    Scansiona il validation dataset UNA SOLA VOLTA all'inizio e trova
+    gli indici delle immagini che contengono i target_classes.
+    Restituisce un dizionario {class_idx: [lista di indici nel dataset]}.
+    """
+    if Config.DATASET_NAME.lower() != "openearthmap":
+        return None  # Pools limitati solo a OEM per la compatibilità retroattiva
+        
+    print("\n[VIZ] Scansione validation set per creare i batch di visualizzazione...")
+    pools = {c: [] for c in target_classes}
+    indices_to_check = list(range(len(dataset)))
+    
+    for idx in tqdm(indices_to_check, desc="Scanning val masks"):
+        _, mask = dataset[idx]
+        mask_np = mask.numpy() if hasattr(mask, 'numpy') else mask
+        for c in target_classes:
+            if (mask_np == c).mean() > 0.05:
+                pools[c].append(idx)
+                
+    for c in target_classes:
+        if len(pools[c]) == 0:
+            print(f"[WARN] Classe {c} non trovata nel validation set (>5% px). Fallback a random.")
+            pools[c] = list(range(len(dataset)))
+    return pools
+
 
 def main(args):
     print("Initializing Neural Network Project: Satellite Image Segmentation")
@@ -26,7 +55,10 @@ def main(args):
     train_loader = DataLoader(train_dataset, batch_size=Config.BATCH_SIZE, shuffle=True, num_workers=2)
     val_loader = DataLoader(val_dataset, batch_size=Config.BATCH_SIZE, shuffle=False, num_workers=2)
     
-    # 2. Model Initialization
+    # ── 1.5. Prepara i pool per la visualizzazione dinamica ──────────────
+    viz_pools = prepare_visualization_pools(val_dataset, Config.OEM_VIZ_CLASSES) if Config.DATASET_NAME.lower() == "openearthmap" else None
+
+    # ── 2. Modello ───────────────────────────────────────────────────────
     # Initialize Lightweight Swin U-Net backbone
     model = LightweightUNet(
         num_classes=Config.NUM_CLASSES,
@@ -83,18 +115,34 @@ def main(args):
         # Save plots
         plot_loss_curves(train_losses, val_losses)
         
-        # Generate some sample predictions
+        # ── Visualizzazione predizioni per classe ────────────────────────
         model.eval()
         with torch.no_grad():
             try:
-                # Grab a batch from validation
-                val_imgs, val_msks = next(iter(val_loader))
-                val_imgs, val_msks = val_imgs.to(Config.DEVICE), val_msks.to(Config.DEVICE)
+                if Config.DATASET_NAME.lower() == "openearthmap" and viz_pools:
+                    # Seleziona 4 indici casuali (uno per ogni target class) dai pool pre-calcolati
+                    viz_indices = [random.choice(viz_pools[c]) for c in Config.OEM_VIZ_CLASSES]
+                    imgs_list, msks_list = [], []
+                    for idx in viz_indices:
+                        img, msk = val_dataset[idx]
+                        imgs_list.append(img)
+                        msks_list.append(msk)
+                    val_imgs = torch.stack(imgs_list).to(Config.DEVICE)
+                    val_msks = torch.stack(msks_list).to(Config.DEVICE)
+                else:
+                    val_imgs, val_msks = next(iter(val_loader))
+                    val_imgs = val_imgs[:4].to(Config.DEVICE)
+                    val_msks = val_msks[:4].to(Config.DEVICE)
+                    
                 logits = model(val_imgs)
-                save_predictions(val_imgs, val_msks, logits, "output_samples", epoch, 0, mIoU=val_miou, mDice=val_dice)
+                save_predictions(
+                    val_imgs, val_msks, logits,
+                    save_dir=os.path.join(Config.ROOT_DIR, "output_samples"),
+                    epoch=epoch, batch_idx=0,
+                    mIoU=val_miou, mDice=val_dice
+                )
             except Exception as e:
-                # Might trigger if val_loader assumes empty data during setup
-                print(f"Skipping visualization for now: {e}")
+                print(f"[WARN] Skip visualizzazione: {e}")
                 
         # Save model
         torch.save(model.state_dict(), "best_model.pth")

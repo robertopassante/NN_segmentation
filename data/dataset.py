@@ -48,29 +48,17 @@ class SatelliteSegmentationDataset(Dataset):
                 download=False,  # Scaricato manualmente da Drive
                 checksum=False
             )
-
-            # ── Smart Subset: carica gli indici pre-calcolati da prepare_dataset.py ──
-            indices_file = os.path.join(self.data_dir, f"oem_{split}_indices.json")
-            if os.path.exists(indices_file):
-                with open(indices_file, "r", encoding="utf-8") as f:
-                    index_data = json.load(f)
-
-                indices = [s["idx"] for s in index_data["samples"]]
+            
+            # ── Nessuno Smart Subset: carica tutto o applica il random subset di sicurezza ──
+            max_samples = Config.MAX_TRAIN_SAMPLES if split == "train" else Config.MAX_VAL_SAMPLES
+            if max_samples and len(self.geo_dataset) > max_samples:
+                rng = np.random.RandomState(42)
+                indices = rng.choice(len(self.geo_dataset), size=max_samples, replace=False)
                 self.geo_dataset = Subset(self.geo_dataset, indices)
                 _subset_applied = True
-
-                print(f"[OEM SMART SUBSET] Split '{split}': {len(indices)} immagini selezionate")
-                print(f"  Soglia dominanza : {index_data.get('threshold', '?') * 100:.0f}%")
-                print(f"  Distribuzione per classe:")
-                class_names = index_data.get("class_names", {})
-                for k, cnt in index_data.get("class_counts", {}).items():
-                    name = class_names.get(k, f"Classe {k}")
-                    if cnt > 0:
-                        print(f"    [{k}] {name:<12}: {cnt:>3}")
+                print(f"[DATASET] OpenEarthMap Split '{split}': {len(indices)} immagini (campione casuale)")
             else:
-                print(f"[OEM] Nessun file indici trovato ({indices_file}).")
-                print(f"      Esegui data/prepare_dataset.py prima del training per il subset intelligente.")
-                print(f"      Uso fallback: subset casuale con MAX_TRAIN/VAL_SAMPLES.")
+                print(f"[DATASET] OpenEarthMap Split '{split}': {len(self.geo_dataset)} immagini totali (Nessun filtro applicato)")
 
         elif self.dataset_name == "deepglobe":
             dg_split = "valid" if self.split == "val" else self.split

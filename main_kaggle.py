@@ -24,6 +24,36 @@ from data.transforms import get_train_transforms, get_val_transforms
 from models.lightweight_unet import LightweightUNet
 from utils.engine import train_one_epoch, evaluate
 from utils.plots import plot_loss_curves, save_predictions
+from tqdm import tqdm
+import random
+
+def prepare_visualization_pools(dataset, target_classes):
+    """
+    Scansiona il validation dataset UNA SOLA VOLTA all'inizio e trova
+    gli indici delle immagini che contengono i target_classes.
+    Restituisce un dizionario {class_idx: [lista di indici nel dataset]}.
+    """
+    print("\n[VIZ] Scansione validation set per creare i batch di visualizzazione...")
+    pools = {c: [] for c in target_classes}
+    
+    # Campioniamo un sottoinsieme se il validation è grande per fare prima
+    indices_to_check = list(range(len(dataset)))
+    
+    for idx in tqdm(indices_to_check, desc="Scanning val masks"):
+        _, mask = dataset[idx]
+        mask_np = mask.numpy() if hasattr(mask, 'numpy') else mask
+        
+        # Aggiunge l'indice se la classe è presente almeno all'5%
+        for c in target_classes:
+            if (mask_np == c).mean() > 0.05:
+                pools[c].append(idx)
+                
+    for c in target_classes:
+        if len(pools[c]) == 0:
+            print(f"[WARN] Classe {c} non trovata nel validation set (>5% px). Fallback a random.")
+            pools[c] = list(range(len(dataset)))
+    return pools
+
 
 
 def main(args):
@@ -58,6 +88,9 @@ def main(args):
         val_dataset, batch_size=Config.BATCH_SIZE,
         shuffle=False, num_workers=2, pin_memory=True
     )
+
+    # ── 1.5. Prepara i pool per la visualizzazione dinamica ──────────────
+    viz_pools = prepare_visualization_pools(val_dataset, Config.OEM_VIZ_CLASSES)
 
     # ── 2. Modello ───────────────────────────────────────────────────────
     print("\n[MODEL] Inizializzazione modello...")
@@ -142,13 +175,23 @@ def main(args):
             save_path=os.path.join(Config.ROOT_DIR, "loss_curve.png")
         )
 
-        # ── Visualizzazione predizioni per classe ────────────────────────
+        # ── Visualizzazione predizioni per classe (Dinamica) ─────────────
         model.eval()
         with torch.no_grad():
             try:
-                val_imgs, val_msks = next(iter(val_loader))
-                val_imgs = val_imgs.to(Config.DEVICE)
-                val_msks = val_msks.to(Config.DEVICE)
+                # Seleziona 4 indici casuali (uno per ogni target class) dai pool pre-calcolati
+                viz_indices = [random.choice(viz_pools[c]) for c in Config.OEM_VIZ_CLASSES]
+                
+                # Crea tensor batch
+                imgs_list, msks_list = [], []
+                for idx in viz_indices:
+                    img, msk = val_dataset[idx]
+                    imgs_list.append(img)
+                    msks_list.append(msk)
+                    
+                val_imgs = torch.stack(imgs_list).to(Config.DEVICE)
+                val_msks = torch.stack(msks_list).to(Config.DEVICE)
+                
                 logits   = model(val_imgs)
                 save_predictions(
                     val_imgs, val_msks, logits,
