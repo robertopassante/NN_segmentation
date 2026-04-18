@@ -35,12 +35,12 @@ class ConfigKaggle:
     DATASET_NAME        = "openearthmap"
 
     # ── Smart Subset (stesso di config.py) ──────────────────────────────────
-    MAX_TRAIN_SAMPLES = 3000
-    MAX_VAL_SAMPLES   = 600
+    MAX_TRAIN_SAMPLES = None
+    MAX_VAL_SAMPLES   = None
 
-    DOMINANT_CLASS_THRESHOLD = 0.40   # 40%
-    SAMPLES_PER_CLASS_TRAIN  = 150    # ~1200 immagini totali train
-    SAMPLES_PER_CLASS_VAL    = 40     # ~320  immagini totali val
+    DOMINANT_CLASS_THRESHOLD = 0.30   # 30%
+    SAMPLES_PER_CLASS_TRAIN  = 10000  # Abbastanza alto da prendere tutto
+    SAMPLES_PER_CLASS_VAL    = 10000  # Abbastanza alto da prendere tutto
 
     # Classi target per la visualizzazione (4 righe fisse nel batch plot)
     # [6=Water, 8=Building, 5=Tree, 7=Agriculture]

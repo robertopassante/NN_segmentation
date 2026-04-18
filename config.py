@@ -14,15 +14,15 @@ class Config:
     DATASET_NAME = "openearthmap" # Opzioni: "loveda", "landcoverai", "deepglobe", "chesapeake", "openearthmap"
     
     # Subset: limita il numero di immagini per velocizzare il training (None = usa tutto)
-    MAX_TRAIN_SAMPLES = 3000
-    MAX_VAL_SAMPLES = 600
+    MAX_TRAIN_SAMPLES = None
+    MAX_VAL_SAMPLES = None
 
     # --- Smart Subset (OpenEarthMap) ---
     # Soglia minima di pixel dominanti per classificare un'immagine in una classe
     DOMINANT_CLASS_THRESHOLD = 0.40  # 40%
     # Numero massimo di immagini selezionate per classe
-    SAMPLES_PER_CLASS_TRAIN = 150   # ~1200 immagini totali in train
-    SAMPLES_PER_CLASS_VAL   = 40    # ~320 immagini totali in val
+    SAMPLES_PER_CLASS_TRAIN = 10000  # Abbastanza alto da prendere tutto
+    SAMPLES_PER_CLASS_VAL   = 10000  # Abbastanza alto da prendere tutto
     # Classi target per la visualizzazione a batch (4 righe fisse)
     # [6=Water, 8=Building, 5=Tree, 7=Agriculture]
     OEM_VIZ_CLASSES = [6, 8, 5, 7]
