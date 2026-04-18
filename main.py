@@ -64,11 +64,19 @@ def main(args):
         num_classes=Config.NUM_CLASSES,
         encoder_name=Config.ENCODER_NAME
     )
+    
+    # Se abbiamo più di 1 GPU, parallelizziamo
+    if torch.cuda.device_count() > 1:
+        print(f"\n🚀 Trovate {torch.cuda.device_count()} GPU! Attivazione DataParallel...")
+        model = torch.nn.DataParallel(model)
+        
     model = model.to(Config.DEVICE)
     
-    # 3. Setup Optimizer and Loss con WARMUP
-    print("Congelamento Backbone Swin-T attivato per prevenire il Gradient Shock...")
-    for param in model.model.encoder.parameters():
+    # 3. Loss, Optimizer, and Scheduler
+    print("Setting up loss and optimizer...")
+    
+    base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
+    for param in base_model.model.encoder.parameters():
         param.requires_grad = False
         
     optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=Config.LEARNING_RATE)
@@ -89,9 +97,11 @@ def main(args):
     
     print("Starting Training Loop...")
     for epoch in range(Config.NUM_EPOCHS):
+        # Unfreeze backbone after 3 epochs
         if epoch == 3:
-            print("\n🔥 SCONGELAMENTO BACKBONE: Inizio Fine-Tuning Profondo! 🔥")
-            for param in model.model.encoder.parameters():
+            print("Unfreezing backbone for fine-tuning...")
+            base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
+            for param in base_model.model.encoder.parameters():
                 param.requires_grad = True
             # Reinizializza l'ottimizzatore per includere il backbone con un learning rate bassissimo
             optimizer = torch.optim.Adam(model.parameters(), lr=Config.LEARNING_RATE / 10)
@@ -145,7 +155,8 @@ def main(args):
                 print(f"[WARN] Skip visualizzazione: {e}")
                 
         # Save model
-        torch.save(model.state_dict(), "best_model.pth")
+        base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
+        torch.save(base_model.state_dict(), "best_model.pth")
         
     print("Training process finished.")
 

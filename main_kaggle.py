@@ -98,11 +98,19 @@ def main(args):
         num_classes=Config.NUM_CLASSES,
         encoder_name=Config.ENCODER_NAME
     )
+    
+    # Se abbiamo più di 1 GPU (come le 2 T4 di Kaggle), parallelizziamo!
+    if torch.cuda.device_count() > 1:
+        print(f"\n🚀 Trovate {torch.cuda.device_count()} GPU! Attivazione DataParallel per dividere il carico...")
+        model = torch.nn.DataParallel(model)
+        
     model = model.to(Config.DEVICE)
 
     # ── 3. Loss, Optimizer, Scheduler ────────────────────────────────────
     print("\n[TRAIN] Congelamento backbone Swin-T (warm-up 3 epoche)...")
-    for param in model.model.encoder.parameters():
+    # Troviamo i layer del backbone. Se è avvolto in DataParallel c'è .module
+    base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
+    for param in base_model.model.encoder.parameters():
         param.requires_grad = False
 
     optimizer = torch.optim.Adam(
@@ -135,7 +143,8 @@ def main(args):
         # Sblocco backbone dopo 3 epoche di warm-up
         if epoch == 3:
             print("\n🔥 SCONGELAMENTO BACKBONE: Inizio Fine-Tuning Profondo!")
-            for param in model.model.encoder.parameters():
+            base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
+            for param in base_model.model.encoder.parameters():
                 param.requires_grad = True
             optimizer = torch.optim.Adam(
                 model.parameters(), lr=Config.LEARNING_RATE / 10
@@ -206,7 +215,8 @@ def main(args):
         ckpt_path = os.path.join(Config.ROOT_DIR, "best_model.pth")
         if val_miou > best_miou:
             best_miou = val_miou
-            torch.save(model.state_dict(), ckpt_path)
+            base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
+            torch.save(base_model.state_dict(), ckpt_path)
             print(f"  ✅ Nuovo best model salvato (mIoU={best_miou:.4f}) → {ckpt_path}")
 
     print("\n✅ Training completato!")
