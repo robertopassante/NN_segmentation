@@ -11,8 +11,11 @@ class ConfigKaggle:
     """
 
     # ── Paths specifici Kaggle ──────────────────────────────────────────────
-    # Dataset raw (read-only, allegato da Kaggle)
-    KAGGLE_INPUT_DIR = "/kaggle/input/global-land-cover-mapping-openearthmap"
+    # Dataset raw (read-only, allegato da Kaggle). Auto-detect del path
+    import glob
+    _found = glob.glob('/kaggle/input/**/train.txt', recursive=True)
+    KAGGLE_INPUT_DIR = os.path.dirname(_found[0]) if _found else "/kaggle/input/global-land-cover-mapping-openearthmap"
+    
     IMAGES_DIR       = os.path.join(KAGGLE_INPUT_DIR, "images")
     LABELS_DIR       = os.path.join(KAGGLE_INPUT_DIR, "label")
 
