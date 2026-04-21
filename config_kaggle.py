@@ -55,11 +55,11 @@ class ConfigKaggle:
     # ── Training Parameters ─────────────────────────────────────────────────
     BATCH_SIZE    = 32
     LEARNING_RATE = 1e-4
-    NUM_EPOCHS    = 30
+    NUM_EPOCHS    = 50
     IMAGE_SIZE    = 224   # Richiesto da Swin Transformer (patch 4x4 su 224x224)
 
     # ── Wavelet parameters (ISPAMM integration) ─────────────────────────────
-    USE_WAVELET_AUGMENTATION = True
+    USE_WAVELET_AUGMENTATION = False
     WAVELET_TYPE = 'haar'
 
     # ── Hardware ────────────────────────────────────────────────────────────

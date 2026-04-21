@@ -5,7 +5,7 @@ import segmentation_models_pytorch as smp
 import safetensors.torch
 
 class LightweightUNet(nn.Module):
-    def __init__(self, num_classes=2, encoder_name="tu-swin_tiny_patch4_window7_224", use_satellite_weights=True):
+    def __init__(self, num_classes=2, encoder_name="tu-swin_tiny_patch4_window7_224", use_satellite_weights=False):
         """
         Initializes a lightweight U-Net using a Swin Transformer backbone.
         Requires `segmentation-models-pytorch` and `timm`.

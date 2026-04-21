@@ -107,28 +107,29 @@ def main(args):
     model = model.to(Config.DEVICE)
 
     # ── 3. Loss, Optimizer, Scheduler ────────────────────────────────────
-    print("\n[TRAIN] Congelamento backbone Swin-T (warm-up 3 epoche)...")
+    print("\n[TRAIN] Configurazione Differential Learning Rates (warm-up backbone 3 epoche)...")
     # Troviamo i layer del backbone. Se è avvolto in DataParallel c'è .module
     base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
     for param in base_model.model.encoder.parameters():
         param.requires_grad = False
 
-    optimizer = torch.optim.Adam(
-        filter(lambda p: p.requires_grad, model.parameters()),
-        lr=Config.LEARNING_RATE
-    )
+    # Inizializziamo l'optimizer subito con Differential LR per salvaguardare il momentum futuro
+    optimizer = torch.optim.Adam([
+        {'params': base_model.model.encoder.parameters(), 'lr': Config.LEARNING_RATE / 10},
+        {'params': base_model.model.decoder.parameters(), 'lr': Config.LEARNING_RATE},
+        {'params': base_model.model.segmentation_head.parameters(), 'lr': Config.LEARNING_RATE},
+    ])
 
     import segmentation_models_pytorch as smp_module
 
     class CombinedLoss(nn.Module):
         def __init__(self):
             super().__init__()
-            # Ignoriamo la classe 0 (Unlabeled) per non confondere la rete con rumore di bordo
-            self.ce   = nn.CrossEntropyLoss(ignore_index=0)
-            # SMP DiceLoss non supporta ignore_index nativamente, ma possiamo passargli le classi da calcolare (da 1 a 8)
-            self.dice = smp_module.losses.DiceLoss(mode='multiclass', classes=[1,2,3,4,5,6,7,8])
+            # Focal loss penalizza duramente le classi sbilanciate (es. rare come i veicoli) e ignora comodamente lo sfondo 0
+            self.focal = smp_module.losses.FocalLoss(mode='multiclass', ignore_index=0)
+            self.dice  = smp_module.losses.DiceLoss(mode='multiclass', classes=[1,2,3,4,5,6,7,8])
         def forward(self, preds, targets):
-            return self.ce(preds, targets) + self.dice(preds, targets)
+            return self.focal(preds, targets) + self.dice(preds, targets)
 
     criterion = CombinedLoss()
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
@@ -144,16 +145,11 @@ def main(args):
 
         # Sblocco backbone dopo 3 epoche di warm-up
         if epoch == 3:
-            print("\n🔥 SCONGELAMENTO BACKBONE: Inizio Fine-Tuning Profondo!")
+            print("\n🔥 SCONGELAMENTO BACKBONE: Inizio Fine-Tuning Profondo con Differential LR!")
             base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
             for param in base_model.model.encoder.parameters():
                 param.requires_grad = True
-            optimizer = torch.optim.Adam(
-                model.parameters(), lr=Config.LEARNING_RATE / 10
-            )
-            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optimizer, T_max=Config.NUM_EPOCHS - 3
-            )
+            # Non resettiamo l'optimizer, in modo da NON perdere il momentum accumulato sul decoder!
 
         print(f"\n--- Epoch {epoch+1}/{Config.NUM_EPOCHS} ---")
 
@@ -167,7 +163,7 @@ def main(args):
         )
         scheduler.step()
 
-        val_loss, val_acc, val_miou, val_dice = evaluate(
+        val_loss, val_acc, val_miou, val_dice, val_f1 = evaluate(
             model, val_loader, criterion, Config.DEVICE,
             num_classes=Config.NUM_CLASSES
         )
@@ -177,7 +173,7 @@ def main(args):
 
         print(
             f"Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | "
-            f"Val Acc: {val_acc*100:.2f}% | mIoU: {val_miou:.4f} | Dice: {val_dice:.4f}"
+            f"Val Acc: {val_acc*100:.2f}% | mIoU: {val_miou:.4f} | Dice: {val_dice:.4f} | F1: {val_f1:.4f}"
         )
 
         # ── Plot loss curves ──────────────────────────────────────────────

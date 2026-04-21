@@ -51,10 +51,11 @@ def evaluate(model, dataloader, criterion, device, num_classes=2):
             
         running_loss += loss.item()
         
-        # Compute accuracy
+        # Compute accuracy (ignoring class 0)
         preds = torch.argmax(logits, dim=1)
-        correct_pixels += (preds == masks).sum().item()
-        total_pixels += torch.numel(masks)
+        valid_mask = masks != 0
+        correct_pixels += (preds[valid_mask] == masks[valid_mask]).sum().item()
+        total_pixels += valid_mask.sum().item()
         
         # Compute IoU and Dice components
         for c in range(num_classes):
@@ -72,9 +73,15 @@ def evaluate(model, dataloader, criterion, device, num_classes=2):
     iou_per_class = total_intersection / (total_union + 1e-6)
     dice_per_class = (2 * total_intersection) / (total_pred + total_target + 1e-6)
     
+    # Calculate F1 Score explicitly (Precision & Recall based)
+    precision_per_class = total_intersection / (total_pred + 1e-6)
+    recall_per_class = total_intersection / (total_target + 1e-6)
+    f1_per_class = (2 * precision_per_class * recall_per_class) / (precision_per_class + recall_per_class + 1e-6)
+    
     # Average only over classes that are present in the dataset/union
     valid_classes = total_union > 0
     mIoU = iou_per_class[valid_classes].mean().item() if valid_classes.any() else 0.0
     mdice = dice_per_class[valid_classes].mean().item() if valid_classes.any() else 0.0
+    mf1 = f1_per_class[valid_classes].mean().item() if valid_classes.any() else 0.0
     
-    return avg_loss, accuracy, mIoU, mdice
+    return avg_loss, accuracy, mIoU, mdice, mf1
