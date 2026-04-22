@@ -181,10 +181,15 @@ def save_predictions(images, masks, logits, save_dir, epoch, batch_idx,
         gt   = masks_np[batch_idx_img]
         pred = preds[batch_idx_img]
 
-        # ── De-normalizza immagine (mean/std ImageNet) ────────────────────
+        # ── Estrai solo RGB e De-normalizza immagine (mean/std ImageNet) ──
+        if img.shape[-1] == 4:
+            img_rgb = img[..., :3]
+        else:
+            img_rgb = img
+            
         mean = np.array([0.485, 0.456, 0.406])
         std  = np.array([0.229, 0.224, 0.225])
-        disp_img = np.clip(img * std + mean, 0, 1)
+        disp_img = np.clip(img_rgb * std + mean, 0, 1)
 
         # ── Metriche per-immagine ──────────────────────────────────────────
         img_iou, img_dice = _per_image_metrics(gt, pred)
