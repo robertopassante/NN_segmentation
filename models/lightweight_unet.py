@@ -5,7 +5,7 @@ import segmentation_models_pytorch as smp
 import safetensors.torch
 
 class LightweightUNet(nn.Module):
-    def __init__(self, num_classes=2, encoder_name="tu-swin_tiny_patch4_window7_224", use_satellite_weights=False):
+    def __init__(self, num_classes=2, encoder_name="tu-swin_tiny_patch4_window7_224", use_satellite_weights=False, in_channels=3):
         """
         Initializes a lightweight U-Net using a Swin Transformer backbone.
         Requires `segmentation-models-pytorch` and `timm`.
@@ -15,9 +15,10 @@ class LightweightUNet(nn.Module):
             encoder_name (str): The timm backbone to use. Defaults to a Swin Tiny transformer.
             use_satellite_weights (bool): Se True, carica i pesi pre-addestrati su foto satellitari.
                                           Se False, usa quelli base (ImageNet).
+            in_channels (int): Input channels (3 for RGB, 4 for RGB+Wavelet).
         """
         super().__init__()
-        print(f"Initializing U-Net with backbone: {encoder_name}")
+        print(f"Initializing U-Net with backbone: {encoder_name} and {in_channels} channels")
         
         # Scegliamo se usare i pesi imagenet nativi di SMP o i nostri custom satellitari
         weights_arg = None if use_satellite_weights else "imagenet"
@@ -26,7 +27,7 @@ class LightweightUNet(nn.Module):
             self.model = smp.Unet(
                 encoder_name=encoder_name,
                 encoder_weights=weights_arg,
-                in_channels=3,
+                in_channels=in_channels,
                 classes=num_classes,
             )
             print("Successfully loaded the model backend from smp.")
@@ -93,7 +94,7 @@ class LightweightUNet(nn.Module):
             self.model = smp.Unet(
                 encoder_name="resnet34",
                 encoder_weights="imagenet",
-                in_channels=3,
+                in_channels=in_channels,
                 classes=num_classes,
             )
             

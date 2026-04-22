@@ -59,7 +59,7 @@ class ConfigKaggle:
     IMAGE_SIZE    = 224   # Richiesto da Swin Transformer (patch 4x4 su 224x224)
 
     # ── Wavelet parameters (ISPAMM integration) ─────────────────────────────
-    USE_WAVELET_AUGMENTATION = False
+    USE_WAVELET_AUGMENTATION = True
     WAVELET_TYPE = 'haar'
 
     # ── Hardware ────────────────────────────────────────────────────────────

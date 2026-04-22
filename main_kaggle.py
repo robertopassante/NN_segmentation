@@ -72,7 +72,7 @@ def main(args):
     train_transform = get_train_transforms(
         Config.IMAGE_SIZE, use_wavelet=Config.USE_WAVELET_AUGMENTATION
     )
-    val_transform = get_val_transforms(Config.IMAGE_SIZE, use_wavelet=False)
+    val_transform = get_val_transforms(Config.IMAGE_SIZE, use_wavelet=Config.USE_WAVELET_AUGMENTATION)
 
     print("\n[DATA] Caricamento dataset...")
     train_dataset = OEMKaggleDataset(split="train", transform=train_transform)
@@ -96,7 +96,8 @@ def main(args):
     print("\n[MODEL] Inizializzazione modello...")
     model = LightweightUNet(
         num_classes=Config.NUM_CLASSES,
-        encoder_name=Config.ENCODER_NAME
+        encoder_name=Config.ENCODER_NAME,
+        in_channels=4 if Config.USE_WAVELET_AUGMENTATION else 3
     )
     
     # Se abbiamo più di 1 GPU (come le 2 T4 di Kaggle), parallelizziamo!

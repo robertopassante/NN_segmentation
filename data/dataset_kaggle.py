@@ -22,6 +22,8 @@ import json
 import torch
 import numpy as np
 import rasterio
+import pywt
+import cv2
 from torch.utils.data import Dataset, Subset
 from config_kaggle import ConfigKaggle as Config
 
@@ -80,6 +82,19 @@ class OEMKaggleDataset(Dataset):
         # ── Leggi mask (GeoTIFF singolo canale, valori 0-8) ───────────────
         with rasterio.open(mask_path) as src:
             mask_np = src.read(1).astype(np.uint8)   # (H, W)
+
+        # ── Aggiungi Wavelet Edge Channel se abilitato ────────────────────
+        if Config.USE_WAVELET_AUGMENTATION:
+            gray = cv2.cvtColor(image_np, cv2.COLOR_RGB2GRAY)
+            # Estraiamo le features ad alta frequenza con la wavelet scelta
+            LL, (LH, HL, HH) = pywt.dwt2(gray, Config.WAVELET_TYPE)
+            # Combiniamo i contorni
+            edges = np.abs(LH) + np.abs(HL) + np.abs(HH)
+            # La DWT dimezza la risoluzione, quindi la riportiamo alla grandezza originale
+            edges = cv2.resize(edges, (image_np.shape[1], image_np.shape[0]))
+            edges = np.clip(edges, 0, 255).astype(np.uint8)
+            # Creiamo l'immagine a 4 canali: RGB + Edges
+            image_np = np.dstack([image_np, edges])
 
         # ── Applica trasformazioni Albumentations ─────────────────────────
         if self.transform is not None:
