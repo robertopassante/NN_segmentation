@@ -19,13 +19,18 @@ se disponibili, altrimenti usa tutto il dataset.
 
 import os
 import json
+import warnings
 import torch
 import numpy as np
 import rasterio
+from rasterio.errors import NotGeoreferencedWarning
 import pywt
 import cv2
 from torch.utils.data import Dataset, Subset
 from config_kaggle import ConfigKaggle as Config
+
+# Silenzia i warning di rasterio per i PNG senza georeferenziazione
+warnings.filterwarnings('ignore', category=NotGeoreferencedWarning)
 
 
 class OEMKaggleDataset(Dataset):
@@ -53,10 +58,19 @@ class OEMKaggleDataset(Dataset):
                 f"Verifica l'allocazione del dataset su Kaggle."
             )
 
-        all_files = [f for f in os.listdir(self.images_dir) if f.endswith('.tif') or f.endswith('.png') or f.endswith('.jpg')]
-        self.file_list = sorted(all_files)
-
-        print(f"[OEM-Kaggle] Split '{split}': {len(self.file_list)} immagini caricate per il training/val")
+        all_files_raw = [f for f in os.listdir(self.images_dir) if f.endswith('.tif') or f.endswith('.png') or f.endswith('.jpg')]
+        
+        # Tieni solo i file per cui esiste una maschera corrispondente
+        valid_files = []
+        for f in sorted(all_files_raw):
+            lbl_path = os.path.join(self.labels_dir, f)
+            alt_lbl_path = os.path.join(self.labels_dir, f.replace('.tif', '.png').replace('.jpg', '.png'))
+            if os.path.exists(lbl_path) or os.path.exists(alt_lbl_path):
+                valid_files.append(f)
+            # Se non c'è la maschera, saltiamo silenziosamente (immagini senza label)
+        
+        self.file_list = valid_files
+        print(f"[OEM-Kaggle] Split '{split}': {len(self.file_list)} immagini caricate per il training/val (su {len(all_files_raw)} totali)")
 
     def __len__(self) -> int:
         return len(self.file_list)
@@ -86,9 +100,14 @@ class OEMKaggleDataset(Dataset):
             image_np = (image_np / image_np.max() * 255).clip(0, 255).astype(np.uint8) \
                        if image_np.max() > 0 else image_np.astype(np.uint8)
 
-        # ── Leggi mask (GeoTIFF singolo canale, valori 0-8) ───────────────
-        with rasterio.open(mask_path) as src:
-            mask_np = src.read(1).astype(np.uint8)   # (H, W)
+        # ── Leggi mask ── rasterio per .tif georeferenziati, cv2 per .png ────
+        if mask_path.endswith('.png'):
+            mask_np = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
+            if mask_np is None:
+                raise FileNotFoundError(f"Maschera non leggibile: {mask_path}")
+        else:
+            with rasterio.open(mask_path) as src:
+                mask_np = src.read(1).astype(np.uint8)   # (H, W)
 
         # ── Aggiungi Wavelet Edge Channel se abilitato ────────────────────
         if Config.USE_WAVELET_AUGMENTATION:
