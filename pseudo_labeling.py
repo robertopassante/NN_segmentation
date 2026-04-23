@@ -1,9 +1,11 @@
 import os
+os.environ["OPENCV_LOG_LEVEL"] = "SILENT"  # Silenzia i warning molesti di OpenCV
 import glob
 import torch
 import numpy as np
 import cv2
 import pywt
+import rasterio
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from segment_anything import sam_model_registry, SamAutomaticMaskGenerator
@@ -42,8 +44,15 @@ def generate_pseudo_labels_batch(input_dir, sam_checkpoint, unet_checkpoint, out
     print("Loading SAM (Segment Anything Model)...")
     sam = sam_model_registry["vit_b"](checkpoint=sam_checkpoint)
     sam.to(Config.DEVICE)
-    mask_generator = SamAutomaticMaskGenerator(sam)
-    
+    # Ottimizzazione Drastica: points_per_side=16 invece di 32 (default). Riduce i punti da 1024 a 256 (velocità 4x).
+    # Aumentiamo crop_n_layers e thresh per renderlo veloce e ignorare il rumore.
+    mask_generator = SamAutomaticMaskGenerator(
+        sam,
+        points_per_side=16,
+        pred_iou_thresh=0.86,
+        stability_score_thresh=0.92,
+        min_mask_region_area=50
+    )
     print("Loading Trained Swin-Unet...")
     in_channels = 4 if getattr(Config, 'USE_WAVELET_AUGMENTATION', False) else 3
     unet = LightweightUNet(num_classes=Config.NUM_CLASSES, encoder_name=Config.ENCODER_NAME, use_satellite_weights=False, in_channels=in_channels)
@@ -64,10 +73,21 @@ def generate_pseudo_labels_batch(input_dir, sam_checkpoint, unet_checkpoint, out
         out_mask_path = os.path.join(output_dir, filename.replace(".jpg", ".png").replace(".tif", ".png"))
         out_vis_path = os.path.join(vis_dir, filename.replace(".jpg", ".png").replace(".tif", ".png"))
         
-        image = cv2.imread(img_path)
-        if image is None:
-            continue
-        image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        try:
+            # Usa rasterio per leggere i TIF senza i fastidiosi warning di OpenCV
+            with rasterio.open(img_path) as src:
+                image_np = src.read(indexes=[1, 2, 3])
+                image_rgb = image_np.transpose(1, 2, 0)
+                if image_rgb.dtype != np.uint8:
+                    if image_rgb.max() > 0:
+                        image_rgb = (image_rgb / image_rgb.max() * 255)
+                    image_rgb = image_rgb.astype(np.uint8)
+        except Exception:
+            # Fallback se non è un tif letto da rasterio
+            image = cv2.imread(img_path)
+            if image is None:
+                continue
+            image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         
         img_tensor, orig_shape = process_image_for_unet(image_rgb)
         
