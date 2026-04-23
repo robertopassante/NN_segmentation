@@ -78,10 +78,24 @@ def evaluate(model, dataloader, criterion, device, num_classes=2):
     recall_per_class = total_intersection / (total_target + 1e-6)
     f1_per_class = (2 * precision_per_class * recall_per_class) / (precision_per_class + recall_per_class + 1e-6)
     
-    # Average only over classes that are present in the dataset/union
-    valid_classes = total_union > 0
-    mIoU = iou_per_class[valid_classes].mean().item() if valid_classes.any() else 0.0
-    mdice = dice_per_class[valid_classes].mean().item() if valid_classes.any() else 0.0
-    mf1 = f1_per_class[valid_classes].mean().item() if valid_classes.any() else 0.0
+    # Exclude class 0 (Background) from all macro-metrics
+    # mIoU/mDice/mF1 should reflect ONLY the semantic classes 1-8
+    semantic_classes = list(range(1, num_classes))
+    valid_semantic = torch.tensor(
+        [c for c in semantic_classes if total_union[c] > 0], device=device, dtype=torch.long
+    )
     
-    return avg_loss, accuracy, mIoU, mdice, mf1
+    if len(valid_semantic) > 0:
+        mIoU  = iou_per_class[valid_semantic].mean().item()
+        mdice = dice_per_class[valid_semantic].mean().item()
+        mf1   = f1_per_class[valid_semantic].mean().item()
+    else:
+        mIoU = mdice = mf1 = 0.0
+    
+    # Per-class breakdown (stampa sempre per diagnostica)
+    CLASS_NAMES = ['BG', 'Bareland', 'Rangeland', 'Developed', 'Road', 'Tree',
+                   'Water', 'Agriculture', 'Building']
+    per_class_iou = {CLASS_NAMES[c]: round(iou_per_class[c].item(), 3)
+                     for c in range(num_classes) if total_union[c] > 0}
+    
+    return avg_loss, accuracy, mIoU, mdice, mf1, per_class_iou

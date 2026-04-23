@@ -183,7 +183,7 @@ def main(args):
         )
         scheduler.step()
 
-        val_loss, val_acc, val_miou, val_dice, val_f1 = evaluate(
+        val_loss, val_acc, val_miou, val_dice, val_f1, per_class_iou = evaluate(
             model, val_loader, criterion, Config.DEVICE,
             num_classes=Config.NUM_CLASSES
         )
@@ -195,6 +195,9 @@ def main(args):
             f"Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | "
             f"Val Acc: {val_acc*100:.2f}% | mIoU: {val_miou:.4f} | Dice: {val_dice:.4f} | F1: {val_f1:.4f}"
         )
+        # Stampa IoU per singola classe (escluso BG) per diagnostica
+        class_str = " | ".join([f"{k}: {v:.3f}" for k, v in per_class_iou.items() if k != 'BG'])
+        print(f"  [IoU/class] {class_str}")
 
         # ── Plot loss curves ──────────────────────────────────────────────
         plot_loss_curves(
