@@ -117,9 +117,9 @@ def main(args):
     base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
     
     if is_finetuning:
-        print("\n[TRAIN] Modalità FINE-TUNING: Nessun congelamento, Learning Rate ridotto (1e-5).")
+        print("\n[TRAIN] Modalità FINE-TUNING: Congelamento backbone per 5 epoche, LR ridotto (1e-5).")
         for param in base_model.model.encoder.parameters():
-            param.requires_grad = True
+            param.requires_grad = False
         lr = 1e-5  # Learning rate molto più basso per preservare i pesi
     else:
         print("\n[TRAIN] Configurazione Differential LR: Congelamento backbone per 3 epoche...")
@@ -157,8 +157,14 @@ def main(args):
     print("\n[TRAIN] Avvio training loop...")
     for epoch in range(Config.NUM_EPOCHS):
 
-        # Sblocco backbone dopo 3 epoche di warm-up (SOLO se NON in fine-tuning)
-        if not is_finetuning and epoch == 3:
+        # Sblocco backbone
+        if is_finetuning and epoch == 5:
+            print("\n🔥 SCONGELAMENTO BACKBONE: Inizio Fine-Tuning Profondo sulle pseudo-labels!")
+            base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
+            for param in base_model.model.encoder.parameters():
+                param.requires_grad = True
+                
+        elif not is_finetuning and epoch == 3:
             print("\n🔥 SCONGELAMENTO BACKBONE: Inizio Fine-Tuning Profondo con Differential LR!")
             base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
             for param in base_model.model.encoder.parameters():

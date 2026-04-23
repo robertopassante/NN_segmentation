@@ -95,11 +95,18 @@ def generate_pseudo_labels_batch(input_dir, sam_checkpoint, unet_checkpoint, out
             logits = unet(img_tensor)
             probs = torch.softmax(logits, dim=1).squeeze().cpu().numpy()
             
-            # Confidence Thresholding per evitare il Confirmation Bias
+            # Confidence Thresholding Adattivo (Punto 2: Evitare il tranello delle classi facili)
             unet_pred = np.argmax(probs, axis=0)
             max_probs = np.max(probs, axis=0)
-            CONFIDENCE_THRESHOLD = 0.85
-            unet_pred[max_probs < CONFIDENCE_THRESHOLD] = 0  # 0 è Background/Ignored Index
+            
+            # Matrice di soglie personalizzate per classe (OpenEarthMap)
+            thresholds_matrix = np.full(unet_pred.shape, 0.85)
+            # Classi rare (3=Developed, 4=Road, 8=Building) abbassiamo la soglia al 40%
+            rare_classes = [3, 4, 8]
+            for rc in rare_classes:
+                thresholds_matrix[unet_pred == rc] = 0.40
+                
+            unet_pred[max_probs < thresholds_matrix] = 0  # 0 è Background/Ignored Index
             
             unet_pred_resized = cv2.resize(unet_pred.astype(np.uint8), (orig_shape[1], orig_shape[0]), interpolation=cv2.INTER_NEAREST)
             

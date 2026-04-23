@@ -17,6 +17,10 @@ def get_train_transforms(image_size, use_wavelet=False):
         A.HorizontalFlip(p=0.5),
         A.VerticalFlip(p=0.5),
         A.RandomRotate90(p=0.5),
+        # --- STRONG AUGMENTATION (Asymmetric Augmentation per Pseudo-Labels) ---
+        A.CoarseDropout(max_holes=8, max_height=32, max_width=32, min_holes=2, min_height=16, min_width=16, p=0.5),
+        A.GaussNoise(var_limit=(10.0, 50.0), p=0.3),
+        A.GridDistortion(num_steps=5, distort_limit=0.3, p=0.3),
         A.Normalize(mean=mean_vals, std=std_vals),
     ])
     return A.Compose(transforms)
