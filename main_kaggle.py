@@ -100,9 +100,11 @@ def main(args):
         in_channels=4 if Config.USE_WAVELET_AUGMENTATION else 3
     )
     
+    is_finetuning = False
     if hasattr(args, 'resume_from') and args.resume_from and os.path.exists(args.resume_from):
-        print(f"\n[MODEL] \u2b50 Caricamento pesi pre-addestrati da: {args.resume_from}")
+        print(f"\n[MODEL] ⭐ Caricamento pesi pre-addestrati da: {args.resume_from}")
         model.load_state_dict(torch.load(args.resume_from, map_location=Config.DEVICE))
+        is_finetuning = True
     
     # Se abbiamo più di 1 GPU (come le 2 T4 di Kaggle), parallelizziamo!
     if torch.cuda.device_count() > 1:
@@ -112,17 +114,24 @@ def main(args):
     model = model.to(Config.DEVICE)
 
     # ── 3. Loss, Optimizer, Scheduler ────────────────────────────────────
-    print("\n[TRAIN] Configurazione Differential Learning Rates (warm-up backbone 3 epoche)...")
-    # Troviamo i layer del backbone. Se è avvolto in DataParallel c'è .module
     base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
-    for param in base_model.model.encoder.parameters():
-        param.requires_grad = False
+    
+    if is_finetuning:
+        print("\n[TRAIN] Modalità FINE-TUNING: Nessun congelamento, Learning Rate ridotto (1e-5).")
+        for param in base_model.model.encoder.parameters():
+            param.requires_grad = True
+        lr = 1e-5  # Learning rate molto più basso per preservare i pesi
+    else:
+        print("\n[TRAIN] Configurazione Differential LR: Congelamento backbone per 3 epoche...")
+        for param in base_model.model.encoder.parameters():
+            param.requires_grad = False
+        lr = Config.LEARNING_RATE
 
-    # Inizializziamo l'optimizer subito con Differential LR per salvaguardare il momentum futuro
+    # Inizializziamo l'optimizer
     optimizer = torch.optim.Adam([
-        {'params': base_model.model.encoder.parameters(), 'lr': Config.LEARNING_RATE / 10},
-        {'params': base_model.model.decoder.parameters(), 'lr': Config.LEARNING_RATE},
-        {'params': base_model.model.segmentation_head.parameters(), 'lr': Config.LEARNING_RATE},
+        {'params': base_model.model.encoder.parameters(), 'lr': lr / 10},
+        {'params': base_model.model.decoder.parameters(), 'lr': lr},
+        {'params': base_model.model.segmentation_head.parameters(), 'lr': lr},
     ])
 
     import segmentation_models_pytorch as smp_module
@@ -148,8 +157,8 @@ def main(args):
     print("\n[TRAIN] Avvio training loop...")
     for epoch in range(Config.NUM_EPOCHS):
 
-        # Sblocco backbone dopo 3 epoche di warm-up
-        if epoch == 3:
+        # Sblocco backbone dopo 3 epoche di warm-up (SOLO se NON in fine-tuning)
+        if not is_finetuning and epoch == 3:
             print("\n🔥 SCONGELAMENTO BACKBONE: Inizio Fine-Tuning Profondo con Differential LR!")
             base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
             for param in base_model.model.encoder.parameters():
