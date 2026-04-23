@@ -73,7 +73,14 @@ def generate_pseudo_labels_batch(input_dir, sam_checkpoint, unet_checkpoint, out
         
         with torch.no_grad():
             logits = unet(img_tensor)
-            unet_pred = torch.argmax(logits, dim=1).squeeze().cpu().numpy()
+            probs = torch.softmax(logits, dim=1).squeeze().cpu().numpy()
+            
+            # Confidence Thresholding per evitare il Confirmation Bias
+            unet_pred = np.argmax(probs, axis=0)
+            max_probs = np.max(probs, axis=0)
+            CONFIDENCE_THRESHOLD = 0.85
+            unet_pred[max_probs < CONFIDENCE_THRESHOLD] = 0  # 0 è Background/Ignored Index
+            
             unet_pred_resized = cv2.resize(unet_pred.astype(np.uint8), (orig_shape[1], orig_shape[0]), interpolation=cv2.INTER_NEAREST)
             
         sam_result = mask_generator.generate(image_rgb) # SAM lavora in RGB originale!
@@ -87,7 +94,14 @@ def generate_pseudo_labels_batch(input_dir, sam_checkpoint, unet_checkpoint, out
             masked_preds = unet_pred_resized[mask]
             if len(masked_preds) == 0:
                 continue
-            majority_class = np.bincount(masked_preds).argmax()
+                
+            # Calcola la maggioranza SOLO sui pixel fiduciosi (> 0)
+            valid_preds = masked_preds[masked_preds > 0]
+            if len(valid_preds) == 0:
+                majority_class = 0 # L'intero segmento SAM è troppo incerto
+            else:
+                majority_class = np.bincount(valid_preds).argmax()
+                
             final_pseudo_label[mask] = majority_class
             
         cv2.imwrite(out_mask_path, final_pseudo_label)
