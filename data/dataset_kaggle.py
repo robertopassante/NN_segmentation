@@ -66,6 +66,13 @@ class OEMKaggleDataset(Dataset):
 
         img_path  = os.path.join(self.images_dir, fname)
         mask_path = os.path.join(self.labels_dir, fname)
+        
+        # Fallback per le pseudo-labels che sono salvate in .png anche se l'immagine originale è .tif
+        if not os.path.exists(mask_path):
+            alt_fname = fname.replace('.tif', '.png').replace('.jpg', '.png')
+            alt_mask_path = os.path.join(self.labels_dir, alt_fname)
+            if os.path.exists(alt_mask_path):
+                mask_path = alt_mask_path
 
         # ── Leggi immagine (GeoTIFF RGB) ──────────────────────────────────
         with rasterio.open(img_path) as src:
