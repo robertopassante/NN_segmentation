@@ -100,6 +100,10 @@ def main(args):
         in_channels=4 if Config.USE_WAVELET_AUGMENTATION else 3
     )
     
+    if hasattr(args, 'resume_from') and args.resume_from and os.path.exists(args.resume_from):
+        print(f"\n[MODEL] \u2b50 Caricamento pesi pre-addestrati da: {args.resume_from}")
+        model.load_state_dict(torch.load(args.resume_from, map_location=Config.DEVICE))
+    
     # Se abbiamo più di 1 GPU (come le 2 T4 di Kaggle), parallelizziamo!
     if torch.cuda.device_count() > 1:
         print(f"\n🚀 Trovate {torch.cuda.device_count()} GPU! Attivazione DataParallel per dividere il carico...")
@@ -231,5 +235,17 @@ if __name__ == "__main__":
         "--dry-run", action="store_true",
         help="Esegui solo 1 batch per testare che tutto funzioni"
     )
+    parser.add_argument("--data_dir", type=str, default=None, help="Override path dataset (es. dataset combinato)")
+    parser.add_argument("--resume_from", type=str, default=None, help="Path a best_model.pth per fine-tuning")
+    
     args = parser.parse_args()
+    
+    # Se viene passato un data_dir personalizzato (come per le pseudo-labels), sovrascriviamo il Config
+    if args.data_dir:
+        Config.KAGGLE_INPUT_DIR = args.data_dir
+        Config.IMAGES_DIR       = os.path.join(args.data_dir, "images")
+        Config.LABELS_DIR       = os.path.join(args.data_dir, "label")
+        Config.TRAIN_DIR        = os.path.join(args.data_dir, "images", "train")
+        Config.VAL_DIR          = os.path.join(args.data_dir, "images", "val")
+        
     main(args)
