@@ -163,14 +163,15 @@ def main(args):
             base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
             for param in base_model.model.encoder.parameters():
                 param.requires_grad = True
-            # Boost LR: ripristina i gruppi a valori utili e resetta lo scheduler
-            # Senza questo il cosine ha già portato l'LR vicino a zero
-            for g in optimizer.param_groups:
-                g['lr'] = lr
+            # Differential LR corretto: encoder x10 più basso del decoder
+            # param_groups[0] = encoder, [1] = decoder, [2] = head
+            optimizer.param_groups[0]['lr'] = lr / 10   # encoder: 1e-6
+            optimizer.param_groups[1]['lr'] = lr         # decoder: 1e-5
+            optimizer.param_groups[2]['lr'] = lr         # head:    1e-5
             scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-                optimizer, T_max=Config.NUM_EPOCHS - 5, eta_min=1e-7
+                optimizer, T_max=Config.NUM_EPOCHS - 5, eta_min=1e-8
             )
-            print(f"   ↑ LR ripristinato a {lr} e scheduler resettato per le restanti epoche.")
+            print(f"   ↑ LR encoder={lr/10:.0e} | decoder={lr:.0e} | scheduler resettato.")
                 
         elif not is_finetuning and epoch == 3:
             print("\n🔥 SCONGELAMENTO BACKBONE: Inizio Fine-Tuning Profondo con Differential LR!")
