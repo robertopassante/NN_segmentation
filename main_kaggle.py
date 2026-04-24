@@ -147,7 +147,7 @@ def main(args):
 
     criterion = CombinedLoss()
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=Config.NUM_EPOCHS
+        optimizer, T_max=Config.NUM_EPOCHS, eta_min=1e-7
     )
 
     train_losses, val_losses = [], []
@@ -163,6 +163,14 @@ def main(args):
             base_model = model.module if isinstance(model, torch.nn.DataParallel) else model
             for param in base_model.model.encoder.parameters():
                 param.requires_grad = True
+            # Boost LR: ripristina i gruppi a valori utili e resetta lo scheduler
+            # Senza questo il cosine ha già portato l'LR vicino a zero
+            for g in optimizer.param_groups:
+                g['lr'] = lr
+            scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+                optimizer, T_max=Config.NUM_EPOCHS - 5, eta_min=1e-7
+            )
+            print(f"   ↑ LR ripristinato a {lr} e scheduler resettato per le restanti epoche.")
                 
         elif not is_finetuning and epoch == 3:
             print("\n🔥 SCONGELAMENTO BACKBONE: Inizio Fine-Tuning Profondo con Differential LR!")
